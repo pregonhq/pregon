@@ -1,5 +1,5 @@
 # Build context: the repository root (multi-module Maven build).
-FROM eclipse-temurin:25.0.4.1_1-jdk-noble AS build
+FROM eclipse-temurin:26.0.2_10-jdk-noble AS build
 WORKDIR /workspace
 
 # Poms first, so the dependency layer is reused while only sources change.
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.m2 \
  && java -Djarmode=tools -jar pregon-server/target/pregon-server-*.jar \
       extract --layers --launcher --destination /extracted
 
-FROM eclipse-temurin:25.0.4.1_1-jre-noble
+FROM eclipse-temurin:26.0.2_10-jre-noble
 
 RUN groupadd --system pregon && useradd --system --gid pregon --no-create-home --shell /usr/sbin/nologin pregon
 WORKDIR /app
