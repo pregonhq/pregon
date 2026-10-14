@@ -1,9 +1,24 @@
-# Configuration (proposal — finalize in Phase 0/1)
+# Configuration
 
-Rules: infrastructure via environment variables; business configuration via API or YAML.
-Pregón must start with **zero configuration** using the defaults below.
+Rules (ADR-0009, refined by ADR-0020): infrastructure via environment variables; business
+configuration via API or YAML. Tunable parameters have documented defaults. Connections and
+secrets have **no defaults**: if one is missing, the service refuses to start and names it.
+The Docker Compose deployment wires the connections between its own services, so the only step
+before the first start is `cp deploy/.env.example deploy/.env` and setting the secrets.
 
 ## Environment variables (infrastructure)
+
+### Connections and secrets — required, no default
+
+| Variable | Purpose | Set by compose |
+|---|---|---|
+| `PREGON_DB_URL` | PostgreSQL JDBC URL | yes, points to the `postgres` service |
+| `PREGON_DB_USER` | PostgreSQL user | yes |
+| `PREGON_DB_PASSWORD` | PostgreSQL password | no — from `.env` (`POSTGRES_PASSWORD`) |
+| `PREGON_REDIS_URL` | Valkey/Redis URL (ADR-0019) | yes, points to the `valkey` service |
+| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015) | yes, points to the `stt` service |
+
+### Tunable parameters — documented defaults
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -14,8 +29,8 @@ Pregón must start with **zero configuration** using the defaults below.
 | `PREGON_STT_COMPUTE_TYPE` | `int8` | Quantization |
 | `PREGON_RETENTION_AUDIO` | `delete-after-transcription` | Or a duration for debugging, e.g. `PT2H` |
 | `PREGON_RETENTION_TRANSCRIPTS` | `none` | `none` or a duration, e.g. `P30D` |
-| `PREGON_DB_URL` / `_USER` / `_PASSWORD` | compose defaults | PostgreSQL |
-| `PREGON_REDIS_URL` | compose default | Redis |
+
+The reason for each default is documented next to the setting when it is implemented.
 
 ## Business configuration (API / YAML)
 - **Sources**: id, location, input (mic/rtsp/file), timezone, operating hours.
