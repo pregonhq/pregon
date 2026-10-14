@@ -45,6 +45,23 @@ Mic / RTSP → ring buffer (RAM)
 | Device SDKs (Kotlin, TypeScript) | Android, desktop, web |
 | Signed webhooks | No-code tools (n8n, Zapier) |
 
+## Building from source
+
+Requires JDK 25 (Maven is provided by the wrapper).
+
+```
+./mvnw verify
+```
+
+| Module | Java | Purpose |
+|---|---|---|
+| `pregon-spi` | 17 | Plugin contracts, safe to embed in any Java 17+ or Android host |
+| `pregon-core` | 17 | Framework-agnostic domain and audio pipeline |
+| `pregon-server` | 25 | Spring Boot service: Ingest and Admin APIs |
+| `pregon-agent` | 25 | Capture agent that runs next to the microphone |
+
+The embeddable modules can be checked on a JDK 17 with `./mvnw -pl pregon-spi,pregon-core verify`.
+
 ## Documentation
 
 - [Vision and scope](docs/vision.md)
