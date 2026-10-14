@@ -16,7 +16,7 @@
 - [ ] Server: ingestion API, persistent queue, retention policy (delete audio after transcription)
 - [ ] STT sidecar: faster-whisper, fixed language, campaign phrases as initial prompt, batching
 - [ ] Campaign rules: keywords, synonyms, fuzzy matching (Spanish normalizer behind an interface)
-- [ ] Interactions by silence gap; offer-rate KPI per source and shift via API
+- [ ] Interactions by silence gap; match-rate KPI (offer rate as the main case) per location, role, source and shift via API
 - [ ] Per-stage metrics: % dropped by gate, % dropped by VAD, queue size, STT latency
 - [ ] API key authentication
 
@@ -25,6 +25,10 @@ via API + speaking near the mic results in a KPI readable via API, with per-stag
 
 ## Later phases (designed, not scheduled)
 - Interactions from POS events (ticket = interaction)
+- Additive KPI and campaign features (ADR-0023): rate of "all targets matched" for protocols and
+  checklists, active time windows per campaign, take rate crossing matches with POS tickets
+- Legal guide for adopters: Mexico's 2025 personal data law, GDPR and the EU AI Act; visible
+  notice; measurement per post, never per person
 - Semantic offer detection, in increments, each with its own ADR (ADR-0022):
   1. Local embeddings tier (ONNX): paraphrases close to a target's phrases ("¿y para acompañar?")
   2. LLM tier (none/local/cloud, ADR-0012): offering versus merely mentioning, only for undecided

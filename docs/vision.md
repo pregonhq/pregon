@@ -13,6 +13,10 @@ cheap by default, private by design, usable by many different software products
 Counter offer analysis: capture counter audio live, keep only speech, transcribe locally,
 detect mentions of campaign products, and compute an offer-rate KPI per source and shift.
 
+The same engine is business-agnostic (ADR-0023): it measures whether something is said at any
+kind of post — a pharmacy counter, a bank advisor's desk, a gas station island — and serves uses
+beyond offering: greeting protocols, mandatory disclosures, and phrases that must not be said.
+
 ## Input sources (target)
 - MVP: microphone, RTSP stream (IP cameras with audio), WAV replay (testing).
 - Later: Android/Windows host apps via SDK (tablet in kiosk mode for continuous capture),
@@ -36,13 +40,16 @@ Documentation must state this clearly.
 Defined in [ADR-0022](adr/0022-domain-model.md); short version:
 - **Tenant**: the business using Pregón (`default` in single-tenant installs).
 - **Location**: a branch or store. Has a timezone and named shifts.
-- **Source**: a capture point (a counter mic, an RTSP stream). Has operating hours.
-- **Campaign**: what to measure, seasonal (with an end date) or permanent. Has a language.
-- **Offer target**: what counts as an offer: a product ("pan de muerto") or a category
-  ("drinks") with items ("agua de jamaica", "café").
+- **Source**: a capture point (a counter mic, an RTSP stream). Has operating hours and an
+  optional role (`cashier`, `advisor`) that campaigns can be scoped to.
+- **Campaign**: what to measure, seasonal (with an end date) or permanent. Has a language and an
+  expectation: EXPECTED (higher is better) or FORBIDDEN (lower is better).
+- **Target**: what is listened for: phrases ("pan de muerto", "algo de tomar") and optional items
+  ("agua de jamaica", "café"); mentioning any of them is a match.
 - **Segment**: a speech fragment produced by the agent. Transient.
 - **Transcript**: text of a segment. Optional storage.
 - **Interaction**: one customer attention, grouped by silence gap on capture time (MVP) or POS
   ticket (later).
-- **Offer event**: a detected mention of an offer target within an interaction.
-- **KPI**: computed on demand, e.g. offer rate = interactions with offer / counted interactions.
+- **Match event**: a detected mention of a target within an interaction.
+- **KPI**: computed on demand: match rate = interactions with a match / counted interactions.
+  For an offer campaign, the match rate is the offer rate.
