@@ -1,0 +1,2 @@
+org.springframework.context.ApplicationListener=\
+io.github.pregonhq.pregon.server.RequiredEnvironment
