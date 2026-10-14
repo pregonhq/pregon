@@ -6,7 +6,7 @@
 - [x] Latest stable versions verified and pinned (ADR-0014)
 - [x] CI: build + tests + gitleaks on every PR
 - [x] `api/openapi.yaml` skeleton (ingest + admin), linted in CI
-- [ ] `deploy/docker-compose.yml` with `lite` profile (server, PostgreSQL, Valkey, STT sidecar)
+- [x] `deploy/docker-compose.yml` with `lite` profile (server, PostgreSQL, Valkey, STT sidecar), smoke-tested in CI
 
 ## Phase 1 — MVP: live audio, end to end
 - [ ] Domain model designed and documented (ADR)

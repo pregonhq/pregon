@@ -1,0 +1,9 @@
+# Keep secrets, private notes and build output out of image build contexts.
+**/.env
+**/target/
+.git/
+.github/
+.maintainer/
+CLAUDE.md
+**/.DS_Store
+**/__pycache__/
