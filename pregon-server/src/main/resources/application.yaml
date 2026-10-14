@@ -1,6 +1,14 @@
+# Connections and secrets have no defaults: a missing one stops startup and names itself (ADR-0020).
 spring:
   application:
     name: pregon-server
+  datasource:
+    url: ${PREGON_DB_URL}
+    username: ${PREGON_DB_USER}
+    password: ${PREGON_DB_PASSWORD}
+  data:
+    redis:
+      url: ${PREGON_REDIS_URL}
 
 management:
   endpoints:
@@ -11,3 +19,8 @@ management:
     health:
       probes:
         enabled: true
+      # Readiness depends on the stores the server cannot work without; liveness does not,
+      # so an outage of PostgreSQL or Valkey takes the server out of rotation without restarting it.
+      group:
+        readiness:
+          include: readinessState, db, redis
