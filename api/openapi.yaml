@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: Pregón API
-  version: 0.1.0
+  version: 0.2.0
   summary: Turns live business signals into events and KPIs.
   description: |
     Source of truth for every Pregón endpoint (ADR-0003). Change this file before, or together
@@ -16,9 +16,16 @@ info:
 
     **Errors** use Problem Details (RFC 9457) with the `application/problem+json` media type.
 
-    **Status of this version.** Operations marked `x-pregon-status: draft` define the shape of
-    the API only. Their payloads are designed in Phase 1 together with the domain model and may
-    change without notice until then.
+    **Resources are archived, never deleted** (ADR-0022): there are no `DELETE` operations.
+
+    **Concurrency.** Responses carry an `ETag`; replacing a resource requires `If-Match` with it.
+
+    **Extensible enums.** Values listed under `x-extensible-enum` will grow (ADR-0023): clients
+    must accept values they do not know. Values under `enum` are closed.
+
+    **Status of this version.** Elements marked `x-pregon-status: draft` are not designed yet and
+    may change without notice: segment ingestion metadata and idempotency, and the audio
+    pipeline parameters of a source.
   license:
     name: Apache 2.0
     identifier: Apache-2.0
@@ -91,23 +98,151 @@ paths:
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
 
+  /v1/locations:
+    get:
+      tags: [Admin]
+      operationId: listLocations
+      summary: List locations
+      security:
+        - adminKey: []
+      parameters:
+        - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of locations of the caller's tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin]
+      operationId: createLocation
+      summary: Create a location
+      security:
+        - adminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/LocationCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/locations/{locationId}:
+    parameters:
+      - $ref: '#/components/parameters/LocationId'
+    get:
+      tags: [Admin]
+      operationId: getLocation
+      summary: Get a location
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          $ref: '#/components/responses/LocationFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Admin]
+      operationId: replaceLocation
+      summary: Replace the editable fields of a location
+      security:
+        - adminKey: []
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/LocationFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Archived'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /v1/locations/{locationId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/LocationId'
+    post:
+      tags: [Admin]
+      operationId: archiveLocation
+      summary: Archive a location
+      description: |
+        Locations are archived, never deleted, so history stays readable (ADR-0022). A location
+        can be archived only when all its sources are archived. Archiving twice is a no-op.
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          $ref: '#/components/responses/LocationFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /v1/sources:
     get:
       tags: [Admin]
       operationId: listSources
       summary: List capture sources
-      x-pregon-status: draft
       security:
         - adminKey: []
+      parameters:
+        - name: locationId
+          in: query
+          description: Only sources of this location.
+          schema:
+            $ref: '#/components/schemas/Id'
+        - $ref: '#/components/parameters/StatusFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: The sources of the caller's tenant.
+          description: A page of sources of the caller's tenant.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Source'
+                $ref: '#/components/schemas/SourcePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -116,7 +251,6 @@ paths:
       tags: [Admin]
       operationId: createSource
       summary: Register a capture source
-      x-pregon-status: draft
       security:
         - adminKey: []
       requestBody:
@@ -124,38 +258,114 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Source'
+              $ref: '#/components/schemas/SourceInput'
       responses:
         '201':
-          description: Created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Source'
+          $ref: '#/components/responses/SourceCreated'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Archived'
+
+  /v1/sources/{sourceId}:
+    parameters:
+      - $ref: '#/components/parameters/SourceId'
+    get:
+      tags: [Admin]
+      operationId: getSource
+      summary: Get a source
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SourceFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Admin]
+      operationId: replaceSource
+      summary: Replace the editable fields of a source
+      description: The location of a source cannot change; register a new source instead.
+      security:
+        - adminKey: []
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/SourceFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Archived'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /v1/sources/{sourceId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/SourceId'
+    post:
+      tags: [Admin]
+      operationId: archiveSource
+      summary: Archive a source
+      description: The source stops accepting segments. Archiving twice is a no-op.
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SourceFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /v1/campaigns:
     get:
       tags: [Admin]
       operationId: listCampaigns
       summary: List campaigns
-      x-pregon-status: draft
       security:
         - adminKey: []
+      parameters:
+        - name: state
+          in: query
+          description: Only campaigns in this state.
+          schema:
+            $ref: '#/components/schemas/CampaignState'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: The campaigns of the caller's tenant.
+          description: A page of campaigns of the caller's tenant.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Campaign'
+                $ref: '#/components/schemas/CampaignPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -163,8 +373,8 @@ paths:
     post:
       tags: [Admin]
       operationId: createCampaign
-      summary: Create a campaign
-      x-pregon-status: draft
+      summary: Create a campaign with its targets
+      description: Creates phrase-set version 1.
       security:
         - adminKey: []
       requestBody:
@@ -172,14 +382,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Campaign'
+              $ref: '#/components/schemas/CampaignInput'
       responses:
         '201':
-          description: Created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Campaign'
+          $ref: '#/components/responses/CampaignCreated'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -187,30 +393,150 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /v1/kpis/offer-rate:
+  /v1/campaigns/{campaignId}:
+    parameters:
+      - $ref: '#/components/parameters/CampaignId'
     get:
       tags: [Admin]
-      operationId: getOfferRate
-      summary: Offer rate per source and shift
-      description: |
-        Interactions with at least one offer divided by total interactions (see the glossary in
-        `docs/vision.md`). Filters and grouping are designed in Phase 1.
-      x-pregon-status: draft
+      operationId: getCampaign
+      summary: Get a campaign with its current targets
       security:
         - adminKey: []
       responses:
         '200':
-          description: The KPI for the requested period.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OfferRate'
+          $ref: '#/components/responses/CampaignFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Admin]
+      operationId: replaceCampaign
+      summary: Replace a campaign
+      description: |
+        Replaces the campaign, its targets included. If the targets, phrases, synonyms or items
+        change, a new phrase-set version is created and used from then on (ADR-0022); match
+        events already detected keep the version that detected them. Changing only the name,
+        period or scope does not create a version. The language and the expectation cannot change.
+      security:
+        - adminKey: []
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/CampaignFound'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Archived'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+
+  /v1/campaigns/{campaignId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/CampaignId'
+    post:
+      tags: [Admin]
+      operationId: archiveCampaign
+      summary: Archive a campaign
+      description: |
+        Stops detection for the campaign; its KPIs stay readable. This is how a permanent
+        campaign ends. Archiving twice is a no-op.
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CampaignFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/kpis/match-rate:
+    get:
+      tags: [Admin]
+      operationId: getMatchRate
+      summary: Match rate of a campaign
+      description: |
+        Counted interactions with at least one match event of the campaign, divided by counted
+        interactions (ADR-0022, ADR-0023). For an offer campaign this is the offer rate. Read it
+        with the campaign's `expectation`: higher is better when EXPECTED, lower when FORBIDDEN.
+        Dates are local to each location. The calculation itself is a maintainer-designed piece;
+        this operation fixes its inputs and outputs.
+      security:
+        - adminKey: []
+      parameters:
+        - name: campaignId
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: from
+          in: query
+          required: true
+          description: First day included, in each location's timezone.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last day included, in each location's timezone. At most 366 days after `from`.
+          schema:
+            type: string
+            format: date
+        - name: groupBy
+          in: query
+          description: |
+            Dimensions to group by. Without it, one total row is returned. Extensible: more
+            dimensions may be added.
+          style: form
+          explode: false
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              type: string
+              x-extensible-enum: [location, role, source, shift]
+        - name: phraseSetVersion
+          in: query
+          description: Count only match events detected with this version. By default all versions count.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The match rate for the requested range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchRate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -225,7 +551,508 @@ components:
       bearerFormat: pgn_<id>_<secret>
       description: API key with the `admin` scope (ADR-0018).
 
+  parameters:
+    LocationId:
+      name: locationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    SourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: |
+        The `ETag` received when the resource was read. Prevents overwriting a change made by
+        someone else in between (optimistic concurrency).
+      schema:
+        type: string
+    StatusFilter:
+      name: status
+      in: query
+      description: Only resources in this status.
+      schema:
+        type: string
+        enum: [ACTIVE, ARCHIVED]
+        default: ACTIVE
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      description: The `nextCursor` of the previous page.
+      schema:
+        type: string
+
+  headers:
+    ETag:
+      description: Version of the resource; send it back in `If-Match` to replace it.
+      schema:
+        type: string
+    Location:
+      description: URL of the created resource.
+      schema:
+        type: string
+        format: uri-reference
+
   schemas:
+    Id:
+      description: UUIDv7 (ADR-0022).
+      type: string
+      format: uuid
+
+    LocalTime:
+      description: Wall-clock time in the location's timezone, `HH:mm`.
+      type: string
+      pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+      examples: ['06:00']
+
+    DayOfWeek:
+      type: string
+      enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+
+    TimeWindow:
+      description: |
+        A weekly window in local time. When `end` is earlier than `start` the window crosses
+        midnight and ends the next day (e.g. a bar open 18:00-02:00).
+      type: object
+      required: [days, start, end]
+      properties:
+        days:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/DayOfWeek'
+        start:
+          $ref: '#/components/schemas/LocalTime'
+        end:
+          $ref: '#/components/schemas/LocalTime'
+
+    Shift:
+      type: object
+      required: [name, windows]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          examples: [Morning]
+        windows:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TimeWindow'
+
+    LifecycleStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED]
+
+    LocationInput:
+      type: object
+      required: [name, timezone, shifts]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        timezone:
+          description: IANA timezone.
+          type: string
+          examples: [America/Mexico_City]
+        shifts:
+          description: Shifts of the location. Their windows must not overlap.
+          type: array
+          items:
+            $ref: '#/components/schemas/Shift'
+
+    Location:
+      allOf:
+        - $ref: '#/components/schemas/LocationInput'
+        - type: object
+          required: [id, status, createdAt, updatedAt]
+          properties:
+            id:
+              $ref: '#/components/schemas/Id'
+            status:
+              $ref: '#/components/schemas/LifecycleStatus'
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    LocationPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        nextCursor:
+          description: Absent on the last page.
+          type: string
+
+    SourceKind:
+      description: Extensible; badges, POS and phone sources may follow.
+      type: string
+      x-extensible-enum: [MICROPHONE, RTSP, FILE]
+
+    Role:
+      description: |
+        Tenant-defined label of the post a source covers, used to scope campaigns (ADR-0023).
+      type: string
+      pattern: '^[a-z0-9][a-z0-9-]{0,39}$'
+      examples: [cashier, advisor, pump-island]
+
+    InteractionSettings:
+      description: |
+        How segments become interactions (ADR-0022, ADR-0023). Durations are ISO 8601. Defaults
+        are starting points to tune with real data.
+      type: object
+      required: [strategy]
+      properties:
+        strategy:
+          description: Extensible; `POS_TICKET` comes in a later phase. Only `SILENCE_GAP` is accepted today.
+          type: string
+          x-extensible-enum: [SILENCE_GAP]
+        gap:
+          description: A silence longer than this starts a new interaction.
+          type: string
+          format: duration
+          default: PT10S
+        allowedLateness:
+          description: How long to wait for late segments after the gap before closing.
+          type: string
+          format: duration
+          default: PT2M
+        minVoicedDuration:
+          description: Interactions with less voiced time are not counted in KPIs.
+          type: string
+          format: duration
+          default: PT2S
+        maxDuration:
+          description: |
+            Longer interactions are split, so continuous speech at peak hours does not become one
+            endless interaction.
+          type: string
+          format: duration
+          default: PT5M
+
+    SourceInput:
+      type: object
+      required: [name, locationId, kind, operatingHours]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: [Main counter]
+        locationId:
+          $ref: '#/components/schemas/Id'
+        kind:
+          $ref: '#/components/schemas/SourceKind'
+        role:
+          $ref: '#/components/schemas/Role'
+        operatingHours:
+          description: The agent listens only inside these windows (ADR-0006).
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TimeWindow'
+        interaction:
+          $ref: '#/components/schemas/InteractionSettings'
+        audio:
+          description: |
+            Audio pipeline parameters (energy gate, VAD, segmenter). Their names and defaults
+            are defined with the maintainer-designed gate and segmenter in Phase 1.
+          x-pregon-status: draft
+          type: object
+
+    Source:
+      allOf:
+        - $ref: '#/components/schemas/SourceInput'
+        - type: object
+          required: [id, status, createdAt, updatedAt]
+          properties:
+            id:
+              $ref: '#/components/schemas/Id'
+            status:
+              $ref: '#/components/schemas/LifecycleStatus'
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    SourcePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
+        nextCursor:
+          type: string
+
+    Phrases:
+      type: array
+      uniqueItems: true
+      items:
+        type: string
+        minLength: 1
+        maxLength: 120
+
+    TargetItem:
+      description: A member of a target, e.g. a specific drink of the target "drinks".
+      type: object
+      required: [name]
+      properties:
+        id:
+          description: Assigned by the server; send it back to keep the item's identity across edits.
+          allOf:
+            - $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: [agua de jamaica]
+        synonyms:
+          $ref: '#/components/schemas/Phrases'
+
+    Target:
+      description: |
+        What is listened for (ADR-0022, ADR-0023). Mentioning one of its phrases, or any of its
+        items, is a match.
+      type: object
+      required: [name, phrases]
+      properties:
+        id:
+          description: Assigned by the server; send it back to keep the target's identity across edits.
+          allOf:
+            - $ref: '#/components/schemas/Id'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: [Bebidas]
+        phrases:
+          $ref: '#/components/schemas/Phrases'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetItem'
+
+    CampaignScope:
+      description: |
+        Which sources the campaign applies to (ADR-0023): the selected locations and, when
+        `roles` is present, only sources with one of those roles. Only their interactions are
+        counted.
+      type: object
+      required: [locations]
+      properties:
+        locations:
+          oneOf:
+            - description: Every location of the tenant, including future ones.
+              const: ALL
+            - description: Only these locations.
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/Id'
+        roles:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Role'
+
+    CampaignInput:
+      type: object
+      required: [name, language, startDate, scope, targets]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples: [Pan de muerto 2026]
+        expectation:
+          description: |
+            EXPECTED (offers, greetings, disclosures: higher is better) or FORBIDDEN (phrases that
+            must not be said: lower is better). Cannot change after creation (ADR-0023).
+          type: string
+          enum: [EXPECTED, FORBIDDEN]
+          default: EXPECTED
+        language:
+          description: BCP 47 language of the phrases (ADR-0008). Cannot change after creation.
+          type: string
+          examples: [es]
+        startDate:
+          description: First day of the campaign, in each location's timezone.
+          type: string
+          format: date
+        endDate:
+          description: |
+            Last day included, in each location's timezone. Absent for a permanent campaign,
+            which stays active until archived.
+          type: string
+          format: date
+        scope:
+          $ref: '#/components/schemas/CampaignScope'
+        targets:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Target'
+
+    CampaignState:
+      description: SCHEDULED, ACTIVE and ENDED derive from the dates; ARCHIVED is set explicitly.
+      type: string
+      enum: [SCHEDULED, ACTIVE, ENDED, ARCHIVED]
+
+    Campaign:
+      allOf:
+        - $ref: '#/components/schemas/CampaignInput'
+        - type: object
+          required: [id, state, phraseSetVersion, createdAt, updatedAt]
+          properties:
+            id:
+              $ref: '#/components/schemas/Id'
+            state:
+              $ref: '#/components/schemas/CampaignState'
+            phraseSetVersion:
+              description: Current version of the targets; starts at 1 (ADR-0022).
+              type: integer
+              minimum: 1
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    CampaignPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campaign'
+        nextCursor:
+          type: string
+
+    Rate:
+      description: |
+        Numerator divided by denominator, from 0 to 1. Null when the denominator is 0: no
+        interactions is "no data", not "0 %".
+      type: [number, 'null']
+      minimum: 0
+      maximum: 1
+
+    TargetRate:
+      type: object
+      required: [targetId, interactionsWithMatch, matchRate]
+      properties:
+        targetId:
+          $ref: '#/components/schemas/Id'
+        interactionsWithMatch:
+          type: integer
+          minimum: 0
+        matchRate:
+          $ref: '#/components/schemas/Rate'
+        items:
+          type: array
+          items:
+            type: object
+            required: [itemId, interactionsWithMatch, matchRate]
+            properties:
+              itemId:
+                $ref: '#/components/schemas/Id'
+              interactionsWithMatch:
+                type: integer
+                minimum: 0
+              matchRate:
+                $ref: '#/components/schemas/Rate'
+
+    MatchRateRow:
+      description: One row per combination of the requested `groupBy` dimensions.
+      type: object
+      required: [countedInteractions, interactionsWithMatch, matchRate, targets]
+      properties:
+        locationId:
+          $ref: '#/components/schemas/Id'
+        role:
+          $ref: '#/components/schemas/Role'
+        sourceId:
+          $ref: '#/components/schemas/Id'
+        shift:
+          description: Shift name, or absent for interactions outside every shift.
+          type: string
+        countedInteractions:
+          type: integer
+          minimum: 0
+        interactionsWithMatch:
+          type: integer
+          minimum: 0
+        matchRate:
+          $ref: '#/components/schemas/Rate'
+        targets:
+          description: Breakdown per target, over the same counted interactions.
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetRate'
+
+    MatchRate:
+      type: object
+      required: [campaignId, expectation, from, to, phraseSetVersions, rows]
+      properties:
+        campaignId:
+          $ref: '#/components/schemas/Id'
+        expectation:
+          description: How to read the rate; copied from the campaign.
+          type: string
+          enum: [EXPECTED, FORBIDDEN]
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        phraseSetVersions:
+          description: Versions whose match events are counted, so mixed versions are visible.
+          type: array
+          items:
+            type: integer
+            minimum: 1
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchRateRow'
+
     Health:
       type: object
       required: [status]
@@ -253,20 +1080,114 @@ components:
         instance:
           type: string
           format: uri-reference
+        errors:
+          description: Extension member listing each invalid field of a 400 response.
+          type: array
+          items:
+            type: object
+            required: [pointer, detail]
+            properties:
+              pointer:
+                description: JSON Pointer (RFC 6901) to the invalid field in the request body.
+                type: string
+                examples: [/targets/0/items]
+              detail:
+                type: string
 
-    Source:
-      description: A capture point, such as a counter microphone. Fields are defined in Phase 1.
-      type: object
 
-    Campaign:
-      description: What to measure during a period, with its language and phrases. Fields are defined in Phase 1.
-      type: object
 
-    OfferRate:
-      description: Aggregated offer-rate KPI. Fields are defined in Phase 1.
-      type: object
 
   responses:
+    LocationFound:
+      description: The location.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Location'
+    LocationCreated:
+      description: Created.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Location:
+          $ref: '#/components/headers/Location'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Location'
+    SourceFound:
+      description: The source.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Source'
+    SourceCreated:
+      description: Created.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Location:
+          $ref: '#/components/headers/Location'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Source'
+    CampaignFound:
+      description: The campaign with its current targets.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Campaign'
+    CampaignCreated:
+      description: Created.
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        Location:
+          $ref: '#/components/headers/Location'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Campaign'
+    NotFound:
+      description: No such resource in the caller's tenant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The operation conflicts with the current state, e.g. archiving a location that still has active sources.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Archived:
+      description: The resource, or one it refers to, is archived and cannot be changed or used.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PreconditionFailed:
+      description: '`If-Match` does not match the current version: someone else changed the resource. Read it again and retry.'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PreconditionRequired:
+      description: The `If-Match` header is missing.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     BadRequest:
       description: The request is malformed or fails validation.
       content:
