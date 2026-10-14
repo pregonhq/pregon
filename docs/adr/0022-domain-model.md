@@ -1,5 +1,5 @@
 # ADR-0022: Domain model
-Status: Proposed
+Status: Accepted
 
 ## Context
 Phase 1 needs a shared model before any pipeline code is written. It refines the glossary of

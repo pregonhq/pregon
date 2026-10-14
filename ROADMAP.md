@@ -9,7 +9,7 @@
 - [x] `deploy/docker-compose.yml` with `lite` profile (server, PostgreSQL, Valkey, STT sidecar), smoke-tested in CI
 
 ## Phase 1 — MVP: live audio, end to end
-- [ ] Domain model designed and documented (ADR)
+- [x] Domain model designed and documented (ADR-0022)
 - [ ] Capture agent: mic, RTSP and WAV-replay sources; ring buffer; adaptive energy gate;
       Silero VAD; hysteresis segmenter; Opus; idempotent upload with retries
 - [ ] Operating hours per source (agent only listens during business hours)
@@ -25,7 +25,11 @@ via API + speaking near the mic results in a KPI readable via API, with per-stag
 
 ## Later phases (designed, not scheduled)
 - Interactions from POS events (ticket = interaction)
-- Local embeddings tier (ONNX) and LLM tier (none/local/cloud) with Redis cache and daily budget
+- Semantic offer detection, in increments, each with its own ADR (ADR-0022):
+  1. Local embeddings tier (ONNX): paraphrases close to a target's phrases ("¿y para acompañar?")
+  2. LLM tier (none/local/cloud, ADR-0012): offering versus merely mentioning, only for undecided
+     cases, with Redis cache and daily budget
+  3. Tenant catalog synchronized from the adopter's POS menu, feeding category items
 - Pluggable transports: Redis Streams, Kafka (KRaft); outbox; idempotent consumers
 - Signed webhooks and n8n example workflows
 - Admin UI with Angular Elements (`ui` profile)
