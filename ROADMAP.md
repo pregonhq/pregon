@@ -2,8 +2,8 @@
 
 ## Phase 0 — Foundations
 - [ ] GitHub organization and repository configured (see maintainer checklist)
-- [ ] Build tool decided; multi-module skeleton: `core`, `spi`, `server`, `agent`, `stt-sidecar`
-- [ ] Latest stable versions verified and pinned
+- [x] Build tool decided; multi-module skeleton: `core`, `spi`, `server`, `agent` (`stt-sidecar` comes with the compose file)
+- [x] Latest stable versions verified and pinned (ADR-0014)
 - [ ] CI: build + tests + gitleaks on every PR
 - [ ] `api/openapi.yaml` skeleton (ingest + admin)
 - [ ] `deploy/docker-compose.yml` with `lite` profile (server, PostgreSQL, Valkey, STT sidecar)

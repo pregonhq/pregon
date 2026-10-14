@@ -1,0 +1,24 @@
+# ADR-0014: a version is adopted only after 14 days; Dependabot waits the same.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+    groups:
+      maven-plugins:
+        patterns:
+          - "org.apache.maven.plugins:*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: ci
