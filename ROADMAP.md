@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Phase 0 — Foundations
-- [ ] GitHub organization and repository configured (see maintainer checklist)
+- [x] GitHub organization and repository configured (see maintainer checklist)
 - [x] Build tool decided; multi-module skeleton: `core`, `spi`, `server`, `agent` (`stt-sidecar` comes with the compose file)
 - [x] Latest stable versions verified and pinned (ADR-0014)
-- [ ] CI: build + tests + gitleaks on every PR
-- [ ] `api/openapi.yaml` skeleton (ingest + admin)
+- [x] CI: build + tests + gitleaks on every PR
+- [x] `api/openapi.yaml` skeleton (ingest + admin), linted in CI
 - [ ] `deploy/docker-compose.yml` with `lite` profile (server, PostgreSQL, Valkey, STT sidecar)
 
 ## Phase 1 — MVP: live audio, end to end

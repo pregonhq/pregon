@@ -1,0 +1,9 @@
+# Lint configuration for api/openapi.yaml. Every relaxed rule states why.
+# Point exceptions live in .redocly.lint-ignore.yaml, each with its reason.
+extends:
+  - recommended
+
+rules:
+  # The only server is the local Docker Compose deployment; adopters set their own base URL.
+  no-server-example.com: off
+  operation-4xx-response: error
