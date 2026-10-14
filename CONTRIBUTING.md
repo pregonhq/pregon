@@ -8,3 +8,4 @@ Thanks for your interest! The project is early, so design discussions are as val
 4. Use Conventional Commits and include tests.
 5. Never include secrets, real recordings or personal data in issues, tests or fixtures.
    Use synthetic or openly licensed audio only.
+6. Write everything in English: code, comments, docs, commits, issues and PRs.
