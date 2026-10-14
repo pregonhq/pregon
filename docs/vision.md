@@ -32,13 +32,17 @@ Capture runs only during configured operating hours. Adopters are responsible fo
 and consent in their jurisdiction (e.g. Mexico's personal data law, GDPR and the EU AI Act).
 Documentation must state this clearly.
 
-## Domain glossary (proposal — to be refined in Phase 1)
+## Domain glossary
+Defined in [ADR-0022](adr/0022-domain-model.md); short version:
 - **Tenant**: the business using Pregón (`default` in single-tenant installs).
-- **Location**: a branch or store. Has a timezone.
+- **Location**: a branch or store. Has a timezone and named shifts.
 - **Source**: a capture point (a counter mic, an RTSP stream). Has operating hours.
-- **Campaign**: what to measure during a period (e.g. seasonal bread). Has a language and phrases.
+- **Campaign**: what to measure, seasonal (with an end date) or permanent. Has a language.
+- **Offer target**: what counts as an offer: a product ("pan de muerto") or a category
+  ("drinks") with items ("agua de jamaica", "café").
 - **Segment**: a speech fragment produced by the agent. Transient.
 - **Transcript**: text of a segment. Optional storage.
-- **Interaction**: one customer attention, grouped by silence gap (MVP) or POS ticket (later).
-- **Offer event**: a detected mention of a campaign product within an interaction.
-- **KPI**: aggregated metrics, e.g. offer rate = interactions with offer / total interactions.
+- **Interaction**: one customer attention, grouped by silence gap on capture time (MVP) or POS
+  ticket (later).
+- **Offer event**: a detected mention of an offer target within an interaction.
+- **KPI**: computed on demand, e.g. offer rate = interactions with offer / counted interactions.
