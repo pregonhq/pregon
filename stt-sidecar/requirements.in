@@ -1,4 +1,4 @@
 # Direct dependencies of the STT sidecar. requirements.txt is generated from this file:
 #   see stt-sidecar/README.md. faster-whisper is added in Phase 1 with transcription.
-fastapi==0.142.1
+fastapi==0.142.2
 uvicorn==0.54.0
