@@ -1,0 +1,84 @@
+# Pregón — Docker Compose deployment (ADR-0002).
+#   cp deploy/.env.example deploy/.env    # then set POSTGRES_PASSWORD
+#   docker compose -f deploy/docker-compose.yml --profile lite up -d --wait
+#
+# Connections between services are wired here. Secrets come from .env and have no defaults:
+# compose refuses to start without them (ADR-0020). Only the server is published to the host.
+
+name: pregon
+
+services:
+  postgres:
+    profiles: [lite]
+    image: postgres:18.6-trixie
+    environment:
+      POSTGRES_DB: pregon
+      POSTGRES_USER: pregon
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required, set it in deploy/.env}
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/<major>/, so mount the parent.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pregon -d pregon"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  valkey:
+    profiles: [lite]
+    image: valkey/valkey:9.1.2-trixie
+    # Cache and transient state only: no persistence to disk.
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256M }
+
+  stt:
+    profiles: [lite]
+    build:
+      context: ../stt-sidecar
+    image: ghcr.io/pregonhq/pregon-stt:dev
+    read_only: true
+    tmpfs: [/tmp]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1G }
+
+  server:
+    profiles: [lite]
+    build:
+      context: ..
+      dockerfile: pregon-server/Dockerfile
+    image: ghcr.io/pregonhq/pregon-server:dev
+    environment:
+      PREGON_DB_URL: jdbc:postgresql://postgres:5432/pregon
+      PREGON_DB_USER: pregon
+      PREGON_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required, set it in deploy/.env}
+      PREGON_REDIS_URL: redis://valkey:6379
+      PREGON_STT_URL: http://stt:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+      stt: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 768M }
+
+volumes:
+  postgres-data:

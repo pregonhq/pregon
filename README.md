@@ -19,7 +19,7 @@ this week's seasonal product, and how often?"*
   and is just another API client.
 - **Embeddable anywhere.** Run it as containers, embed the Java core in your app, or integrate
   via SDKs and webhooks. Built to be added to many different software products.
-- **Containers everywhere.** One command to run: `docker compose --profile lite up`.
+- **Containers everywhere.** One command to run: `docker compose -f deploy/docker-compose.yml --profile lite up`.
 
 ## How it works (MVP)
 
@@ -44,6 +44,19 @@ Mic / RTSP → ring buffer (RAM)
 | Spring Boot starter | Spring applications |
 | Device SDKs (Kotlin, TypeScript) | Android, desktop, web |
 | Signed webhooks | No-code tools (n8n, Zapier) |
+
+## Quick start
+
+Requires Docker with Compose v2.
+
+```
+cp deploy/.env.example deploy/.env      # then set POSTGRES_PASSWORD
+docker compose -f deploy/docker-compose.yml --profile lite up -d --wait
+curl http://localhost:8080/actuator/health
+```
+
+The `lite` profile runs the server, PostgreSQL, Valkey and the speech-to-text sidecar.
+Only the server is published to the host. Without `POSTGRES_PASSWORD`, compose refuses to start.
 
 ## Building from source
 

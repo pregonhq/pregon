@@ -16,7 +16,7 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_DB_USER` | PostgreSQL user | yes |
 | `PREGON_DB_PASSWORD` | PostgreSQL password | no — from `.env` (`POSTGRES_PASSWORD`) |
 | `PREGON_REDIS_URL` | Valkey/Redis URL (ADR-0019) | yes, points to the `valkey` service |
-| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015) | yes, points to the `stt` service |
+| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015); required once the server calls the sidecar (Phase 1) | yes, points to the `stt` service |
 
 ### Tunable parameters — documented defaults
 

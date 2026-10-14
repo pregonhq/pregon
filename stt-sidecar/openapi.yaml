@@ -1,0 +1,56 @@
+openapi: 3.1.1
+info:
+  title: Pregón STT sidecar
+  version: 0.1.0
+  summary: Internal speech-to-text service used by the Pregón server (ADR-0015).
+  description: |
+    Internal API between the Pregón server and its speech-to-text sidecar. It is not exposed
+    outside the deployment and has no authentication of its own.
+
+    Audio is processed in memory and never written to disk (ADR-0006).
+
+    Operations marked `x-pregon-status: draft` are designed in Phase 1.
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+
+# No authentication: the sidecar is reachable only from the deployment's internal network.
+security: []
+
+servers:
+  - url: http://stt:8000
+    description: Service name inside the Docker Compose network
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness of the sidecar
+      responses:
+        '200':
+          description: The sidecar is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    examples: [UP]
+
+  /v1/transcriptions:
+    post:
+      operationId: transcribe
+      summary: Transcribe one or more speech segments
+      description: |
+        Receives segments with a fixed `language` and an optional `prompt` built from campaign
+        phrases (ADR-0007, ADR-0008). Request and response payloads are designed in Phase 1.
+      x-pregon-status: draft
+      responses:
+        '200':
+          description: Transcripts, one per segment.
+        '400':
+          description: The request is malformed.
+        '501':
+          description: Transcription is not implemented yet.

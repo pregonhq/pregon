@@ -71,4 +71,36 @@ jobs:
         with:
           node-version: '24'
       # ADR-0003: api/openapi.yaml is the source of truth, so it must always be valid.
-      - run: npx --yes @redocly/cli@2.55.0 lint --config api/redocly.yaml api/openapi.yaml
+      - run: npx --yes @redocly/cli@2.55.0 lint --config api/redocly.yaml api/openapi.yaml stt-sidecar/openapi.yaml
+
+  compose-smoke:
+    name: Compose lite smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Compose refuses to start without the database password (ADR-0020)
+        run: |
+          if docker compose -f deploy/docker-compose.yml --profile lite config > /dev/null 2>&1; then
+            echo "compose accepted a missing POSTGRES_PASSWORD"; exit 1
+          fi
+      - name: Create deploy/.env with a throwaway password
+        run: |
+          cp deploy/.env.example deploy/.env
+          sed -i "s|^POSTGRES_PASSWORD=$|POSTGRES_PASSWORD=$(openssl rand -hex 24)|" deploy/.env
+      - name: Start the lite profile and wait until every service is healthy
+        run: docker compose -f deploy/docker-compose.yml --profile lite up -d --build --wait --wait-timeout 300
+      - name: Server is ready from the host
+        run: curl -fsS http://localhost:8080/actuator/health/readiness
+      - name: Readiness drops when Valkey stops, liveness stays up
+        run: |
+          docker compose -f deploy/docker-compose.yml --profile lite stop valkey
+          sleep 5
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health/readiness)" = 503
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health/liveness)" = 200
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f deploy/docker-compose.yml --profile lite logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml --profile lite down -v

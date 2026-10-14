@@ -22,3 +22,30 @@ updates:
       default-days: 14
     commit-message:
       prefix: ci
+
+  - package-ecosystem: docker
+    directories: [/pregon-server, /stt-sidecar]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+
+  - package-ecosystem: pip
+    directory: /stt-sidecar
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
