@@ -1,0 +1,23 @@
+# Secrets and local config
+.env
+*.env
+!.env.example
+# Maintainer private notes
+.maintainer/
+# Audio and models (never commit real recordings or model weights)
+*.wav
+*.opus
+*.mp3
+models/
+!**/src/test/resources/audio/synthetic/**
+# Build output
+target/
+build/
+.gradle/
+node_modules/
+dist/
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
