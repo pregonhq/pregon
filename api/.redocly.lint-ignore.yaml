@@ -1,0 +1,5 @@
+# Point exceptions to api/redocly.yaml rules. Add one only with its reason.
+openapi.yaml:
+  operation-4xx-response:
+    # Health probes take no input, so there is no client error to describe.
+    - '#/paths/~1actuator~1health/get/responses'

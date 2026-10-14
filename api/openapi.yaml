@@ -1,0 +1,305 @@
+openapi: 3.1.1
+info:
+  title: Pregón API
+  version: 0.1.0
+  summary: Turns live business signals into events and KPIs.
+  description: |
+    Source of truth for every Pregón endpoint (ADR-0003). Change this file before, or together
+    with, the implementation.
+
+    Two APIs share this contract:
+    - **Ingest**: high volume, used by capture agents. Requires an API key with the `ingest` scope.
+    - **Admin**: sources, campaigns and KPIs. Requires an API key with the `admin` scope.
+
+    **Tenancy.** Every API key belongs to one tenant (ADR-0018), so requests never carry a tenant
+    id: the server derives it from the key. Single-tenant installs use the `default` tenant.
+
+    **Errors** use Problem Details (RFC 9457) with the `application/problem+json` media type.
+
+    **Status of this version.** Operations marked `x-pregon-status: draft` define the shape of
+    the API only. Their payloads are designed in Phase 1 together with the domain model and may
+    change without notice until then.
+  license:
+    name: Apache 2.0
+    identifier: Apache-2.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local Docker Compose deployment
+
+tags:
+  - name: Operations
+    description: Health probes for orchestrators. No authentication.
+  - name: Ingest
+    description: Signals sent by capture agents.
+  - name: Admin
+    description: Business configuration and KPIs.
+
+paths:
+  /actuator/health:
+    get:
+      tags: [Operations]
+      operationId: getHealth
+      summary: Overall health of the server
+      security: []
+      responses:
+        '200':
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: The server or one of its dependencies is down.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+
+  /v1/segments:
+    post:
+      tags: [Ingest]
+      operationId: ingestSegment
+      summary: Upload one speech segment
+      description: |
+        Receives one speech segment produced by a capture agent, encoded as Opus in an Ogg
+        container (ADR-0007). The audio is kept only until it is transcribed (ADR-0006).
+
+        Pending design (Phase 1, maintainer): segment metadata, idempotency key semantics and
+        the response to a duplicate upload.
+      x-pregon-status: draft
+      security:
+        - ingestKey: []
+      requestBody:
+        required: true
+        content:
+          audio/ogg:
+            schema:
+              type: string
+              contentMediaType: audio/ogg
+      responses:
+        '202':
+          description: Accepted for transcription; processing is asynchronous.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /v1/sources:
+    get:
+      tags: [Admin]
+      operationId: listSources
+      summary: List capture sources
+      x-pregon-status: draft
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          description: The sources of the caller's tenant.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Source'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin]
+      operationId: createSource
+      summary: Register a capture source
+      x-pregon-status: draft
+      security:
+        - adminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Source'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/campaigns:
+    get:
+      tags: [Admin]
+      operationId: listCampaigns
+      summary: List campaigns
+      x-pregon-status: draft
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          description: The campaigns of the caller's tenant.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Campaign'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin]
+      operationId: createCampaign
+      summary: Create a campaign
+      x-pregon-status: draft
+      security:
+        - adminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Campaign'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/kpis/offer-rate:
+    get:
+      tags: [Admin]
+      operationId: getOfferRate
+      summary: Offer rate per source and shift
+      description: |
+        Interactions with at least one offer divided by total interactions (see the glossary in
+        `docs/vision.md`). Filters and grouping are designed in Phase 1.
+      x-pregon-status: draft
+      security:
+        - adminKey: []
+      responses:
+        '200':
+          description: The KPI for the requested period.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfferRate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    ingestKey:
+      type: http
+      scheme: bearer
+      bearerFormat: pgn_<id>_<secret>
+      description: API key with the `ingest` scope (ADR-0018). Used by capture agents.
+    adminKey:
+      type: http
+      scheme: bearer
+      bearerFormat: pgn_<id>_<secret>
+      description: API key with the `admin` scope (ADR-0018).
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          examples: [UP]
+
+    Problem:
+      description: Problem Details for HTTP APIs (RFC 9457).
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+
+    Source:
+      description: A capture point, such as a counter microphone. Fields are defined in Phase 1.
+      type: object
+
+    Campaign:
+      description: What to measure during a period, with its language and phrases. Fields are defined in Phase 1.
+      type: object
+
+    OfferRate:
+      description: Aggregated offer-rate KPI. Fields are defined in Phase 1.
+      type: object
+
+  responses:
+    BadRequest:
+      description: The request is malformed or fails validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Missing, malformed, unknown or revoked API key.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: The API key does not have the scope this operation requires.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PayloadTooLarge:
+      description: The segment exceeds the maximum accepted size.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    ServiceUnavailable:
+      description: The ingestion queue is full; retry later (backpressure, ADR-0007).
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
