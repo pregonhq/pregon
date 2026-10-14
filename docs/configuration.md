@@ -34,12 +34,13 @@ The reason for each default is documented next to the setting when it is impleme
 
 ## Business configuration (API / YAML)
 - **Locations**: id, name, timezone, shifts (named weekly windows in local time).
-- **Sources**: id, location, input (mic/rtsp/file), operating hours.
+- **Sources**: id, location, input (mic/rtsp/file), optional role, operating hours.
 - **Audio pipeline per source** (defaults provided): energy gate margin, VAD threshold,
   silence hangover, pre-roll, min/max segment length.
-- **Interactions per source**: strategy `silence-gap` (MVP) or `pos-event` (later); gap
-  threshold, allowed lateness before closing, minimum voiced duration.
-- **Campaigns**: id, period (end optional for permanent campaigns), language, locations in scope,
-  offer targets (products or categories with items), each with phrases and synonyms.
+- **Interactions per source**: strategy `SILENCE_GAP` (MVP) or `POS_TICKET` (later); gap
+  threshold, allowed lateness before closing, minimum voiced duration, maximum duration.
+- **Campaigns**: id, period (end optional for permanent campaigns), language, expectation
+  (EXPECTED or FORBIDDEN), scope (locations and optional roles), targets with phrases and
+  optional items with synonyms.
 
 Every parameter must be documented with its default and why that default was chosen.
