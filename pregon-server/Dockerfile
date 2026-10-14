@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context: the repository root (multi-module Maven build).
 FROM eclipse-temurin:25.0.4.1_1-jdk-noble AS build
 WORKDIR /workspace
@@ -30,6 +31,12 @@ COPY --from=build /extracted/dependencies/ ./
 COPY --from=build /extracted/spring-boot-loader/ ./
 COPY --from=build /extracted/snapshot-dependencies/ ./
 COPY --from=build /extracted/application/ ./
+
+# `pregon keys ...` manages API keys inside the container (ADR-0018).
+COPY --chmod=755 <<'SCRIPT' /usr/local/bin/pregon
+#!/bin/sh
+exec java -cp /app org.springframework.boot.loader.launch.JarLauncher "$@"
+SCRIPT
 
 USER pregon
 EXPOSE 8080
