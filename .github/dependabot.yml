@@ -1,4 +1,5 @@
 # ADR-0014: a version is adopted only after 14 days; Dependabot waits the same.
+# Ignored updates are deliberate decisions, each with its reason; change them through an ADR.
 version: 2
 updates:
   - package-ecosystem: maven
@@ -9,6 +10,18 @@ updates:
       default-days: 14
     commit-message:
       prefix: build
+    # Versions that mirror the Spring Boot BOM move together with a Spring Boot upgrade.
+    ignore:
+      - dependency-name: "org.junit:junit-bom"
+      - dependency-name: "org.apache.maven.plugins:maven-clean-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-compiler-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-dependency-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-deploy-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-enforcer-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-install-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-jar-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-resources-plugin"
+      - dependency-name: "org.apache.maven.plugins:maven-surefire-plugin"
     groups:
       maven-plugins:
         patterns:
@@ -31,6 +44,13 @@ updates:
       default-days: 14
     commit-message:
       prefix: build
+    ignore:
+      # Java stays on the LTS line of ADR-0014; moving to the next LTS is an ADR, not a bump.
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      # Python 3.13 is chosen for the sidecar's Phase 1 wheels; patch updates still come through.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: docker-compose
     directory: /deploy
