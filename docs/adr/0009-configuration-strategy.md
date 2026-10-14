@@ -1,5 +1,5 @@
 # ADR-0009: Configuration strategy
-Status: Accepted
+Status: Accepted (defaults refined by ADR-0020)
 
 ## Decision
 Configurable from day one: `tenantId` on every entity (default `default`); operating hours and

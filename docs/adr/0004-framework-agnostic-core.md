@@ -1,5 +1,5 @@
 # ADR-0004: Framework-agnostic core and plugin SPI
-Status: Accepted
+Status: Accepted (Java release superseded by ADR-0021: now 17)
 
 ## Decision
 `core` and `spi` are pure Java (release 21), no Spring, minimal dependencies, hexagonal.
