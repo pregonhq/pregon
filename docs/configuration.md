@@ -29,6 +29,11 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_STT_COMPUTE_TYPE` | `int8` | Quantization |
 | `PREGON_RETENTION_AUDIO` | `delete-after-transcription` | Or a duration for debugging, e.g. `PT2H` |
 | `PREGON_RETENTION_TRANSCRIPTS` | `none` | `none` or a duration, e.g. `P30D` |
+| `PREGON_INGEST_MAX_SEGMENT_BYTES` | `1048576` | Largest accepted segment (1 MiB, about 5 min of Opus at 24 kbit/s) |
+| `PREGON_INGEST_QUEUE_MAX_BYTES` | `268435456` | Queue size per tenant before `503` (256 MiB, about 25 h of speech at 24 kbit/s) |
+| `PREGON_INGEST_CLOCK_SKEW_THRESHOLD` | `PT2M` | Capture end vs arrival time beyond which a segment is flagged |
+| `PREGON_STT_LEASE` | `PT2M` | How long a worker owns a job before it returns to the queue |
+| `PREGON_STT_MAX_ATTEMPTS` | `3` | Failed attempts before a segment is `FAILED` and its audio deleted |
 
 The reason for each default is documented next to the setting when it is implemented.
 
