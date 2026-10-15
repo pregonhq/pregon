@@ -13,6 +13,10 @@ spring:
     # Errors raised by Spring MVC (404, 405, 415…) as RFC 9457 Problem Details, like the contract.
     problemdetails:
       enabled: true
+  jackson:
+    deserialization:
+      # A misspelled field is a client bug; ignoring it would silently drop configuration.
+      fail-on-unknown-properties: true
   web:
     resources:
       # An API serves no static files; without this a 404 talks about static resources.
