@@ -18,7 +18,7 @@
 - [ ] Campaign rules: keywords, synonyms, fuzzy matching (Spanish normalizer behind an interface)
 - [ ] Interactions by silence gap; match-rate KPI (offer rate as the main case) per location, role, source and shift via API
 - [ ] Per-stage metrics: % dropped by gate, % dropped by VAD, queue size, STT latency
-- [ ] API key authentication
+- [x] API key authentication (ADR-0018): scoped keys, `pregon keys` command
 
 **MVP is done when:** `docker compose --profile lite up` + running the agent + creating a campaign
 via API + speaking near the mic results in a KPI readable via API, with per-stage metrics.

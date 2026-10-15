@@ -10,7 +10,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * <p>The containers are exposed through the {@code PREGON_*} variables, not through Spring
  * properties, so the tests also cover the mapping in {@code application.yaml}.
  */
-final class InfrastructureContainers {
+public final class InfrastructureContainers {
 
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6");
 
@@ -25,7 +25,7 @@ final class InfrastructureContainers {
     private InfrastructureContainers() {
     }
 
-    static void register(DynamicPropertyRegistry registry) {
+    public static void register(DynamicPropertyRegistry registry) {
         registry.add("PREGON_DB_URL", POSTGRES::getJdbcUrl);
         registry.add("PREGON_DB_USER", POSTGRES::getUsername);
         registry.add("PREGON_DB_PASSWORD", POSTGRES::getPassword);

@@ -58,6 +58,17 @@ curl http://localhost:8080/actuator/health
 The `lite` profile runs the server, PostgreSQL, Valkey and the speech-to-text sidecar.
 Only the server is published to the host. Without `POSTGRES_PASSWORD`, compose refuses to start.
 
+Every API call needs an API key. Create the first one inside the server container; it is printed
+once and cannot be shown again:
+
+```
+docker compose -f deploy/docker-compose.yml exec server pregon keys create --scope admin --name "my laptop"
+curl -H "Authorization: Bearer pgn_..." http://localhost:8080/v1/locations
+```
+
+`pregon keys list` shows the keys without their secrets and `pregon keys revoke ID` disables one.
+Agents use keys with the `ingest` scope.
+
 ## Building from source
 
 Requires JDK 25 (Maven is provided by the wrapper).
