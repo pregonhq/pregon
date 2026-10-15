@@ -33,11 +33,17 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_INGEST_QUEUE_MAX_BYTES` | `268435456` | Queue size per tenant before `503` (256 MiB, about 25 h of speech at 24 kbit/s) |
 | `PREGON_INGEST_QUEUE_SOURCE_SHARE` | `0.5` | Largest fraction of the tenant's queue one source may hold, so a noisy source cannot starve the others |
 | `PREGON_INGEST_RETRY_AFTER_MIN` | `PT5S` | Smallest `Retry-After` of a `503`, used while no transcription rate has been observed yet |
+| `PREGON_INGEST_RETRY_AFTER_MAX` | `PT5M` | Largest `Retry-After` of a `503` (ADR-0025) |
+| `PREGON_INGEST_INFLIGHT_MAX_BYTES` | `67108864` | Upload bytes held in memory at once before an immediate `503` (64 MiB, ADR-0025) |
+| `PREGON_INGEST_QUOTA_RECONCILE` | `PT10S` | How often in-memory queue counters are reconciled with the database (ADR-0025) |
+| `PREGON_AUTH_CACHE_TTL` | `PT30S` | How long a resolved API key is cached: the revocation window (ADR-0025, maintainer to confirm) |
+| `PREGON_RETENTION_SEGMENTS` | `P3M` | How long segment metadata is kept; older partitions are dropped (ADR-0025, maintainer to confirm) |
 | `PREGON_INGEST_CLOCK_SKEW_THRESHOLD` | `PT2M` | Capture end vs arrival time beyond which a segment is flagged |
 | `PREGON_STT_LEASE` | `PT2M` | How long a worker owns a job before it returns to the queue |
 | `PREGON_STT_MAX_ATTEMPTS` | `3` | Failed attempts before a segment is `FAILED` and its audio deleted |
 
-The reason for each default is documented next to the setting when it is implemented.
+The reason for each default is documented next to the setting when it is implemented; the
+ingestion and queue defaults are derived in `docs/capacity.md`.
 
 ## Business configuration (API / YAML)
 - **Locations**: id, name, timezone, shifts (named weekly windows in local time).

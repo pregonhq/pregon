@@ -1,5 +1,5 @@
 # ADR-0024: Idempotent segment ingestion and persistent queue
-Status: Accepted (amends the Segment row of ADR-0022)
+Status: Accepted (amends the Segment row of ADR-0022; hot path, quotas and retention refined by ADR-0025)
 
 ## Context
 Agents upload speech segments over unreliable networks. When a connection drops after the server
