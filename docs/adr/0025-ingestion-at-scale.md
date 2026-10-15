@@ -140,8 +140,11 @@ QUEUED ──claim (lease, attempt+1)──▶ LEASED ──complete──▶ TR
 - **Workers exist only when an STT sidecar is configured** (`PREGON_STT_URL`, a connection, no
   default per ADR-0020). Without it nothing drains the queue, which also makes backpressure tests
   deterministic.
-- The queue port lives in `core` without Spring: `claim(n, lease) → List<Job>`,
-  `complete(id, attempt, result)`, `fail(id, attempt, reason)`.
+- The queue port lives in `core` without Spring (`SegmentQueue`): `claim(max, lease) → List<Job>`,
+  `complete(id, attempt) → COMPLETED | STALE`, `fail(id, attempt, reason) → REQUEUED | FAILED | STALE`.
+  Enqueuing is not part of the port: it happens inside the ingestion transaction. Implementations
+  take a `java.time.Clock`, so lease expiry is tested by moving the clock, never by waiting. The
+  behavior is fixed by `SegmentQueueContract`, an abstract test every implementation extends.
 
 ### 10. Every stage reports what it dropped (ADR-0001)
 Counters per rejection reason (`413`, `400`, `401`, `403`, `404`, `409`, `503-inflight`,
