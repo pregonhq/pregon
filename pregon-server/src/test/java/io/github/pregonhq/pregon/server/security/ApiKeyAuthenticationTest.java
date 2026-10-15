@@ -25,8 +25,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * ADR-0018 against a real PostgreSQL. The Admin and Ingest endpoints do not exist yet, so a
- * request that passes security ends in 404; what matters here is that it is neither 401 nor 403.
+ * ADR-0018 against a real PostgreSQL. The segment upload endpoint does not exist yet, so a
+ * request that passes security there ends in 404; what matters is that it is neither 401 nor 403.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,7 +58,7 @@ class ApiKeyAuthenticationTest {
         ApiKeyToken admin = apiKeys.create("default", "admin test", Set.of(ApiKeyScope.ADMIN));
 
         mockMvc.perform(get("/v1/locations").header("Authorization", "Bearer " + admin.value()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk());
     }
 
     @Test
