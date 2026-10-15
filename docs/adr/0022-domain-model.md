@@ -1,5 +1,5 @@
 # ADR-0022: Domain model
-Status: Accepted (names, scope and target kinds amended by ADR-0023)
+Status: Accepted (names, scope and target kinds amended by ADR-0023; segment persistence by ADR-0024)
 
 ## Context
 Phase 1 needs a shared model before any pipeline code is written. It refines the glossary of
