@@ -1295,7 +1295,10 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     ServiceUnavailable:
-      description: The ingestion queue of the tenant or the source's share is full; retry after `Retry-After` (ADR-0024).
+      description: |
+        The server cannot take the segment now: the ingestion queue of the tenant or the source's
+        share is full (ADR-0024), or too many uploads are in flight at once (ADR-0025). Retry after
+        `Retry-After`.
       headers:
         Retry-After:
           description: Seconds to wait before retrying.

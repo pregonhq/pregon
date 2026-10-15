@@ -3,6 +3,9 @@ package io.github.pregonhq.pregon.server.ingest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -129,6 +132,41 @@ abstract class IngestTestSupport {
             request.header("Authorization", "Bearer " + key);
         }
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
+     * Opens an upload and sends only the first {@code bytesToSend} of its body, then leaves the
+     * socket open: a slow or stalled agent from the server's point of view.
+     */
+    Socket openPartialUpload(String key, String segmentId, byte[] body, int bytesToSend) throws Exception {
+        Socket socket = new Socket("localhost", port);
+        socket.setSoTimeout(10_000);
+        OutputStream out = socket.getOutputStream();
+        out.write(uploadHeaders(key, segmentId, body.length));
+        out.write(body, 0, bytesToSend);
+        out.flush();
+        return socket;
+    }
+
+    byte[] uploadHeaders(String key, String segmentId, long contentLength) {
+        return ("PUT /v1/segments/" + segmentId + " HTTP/1.1\r\n"
+                + "Host: localhost:" + port + "\r\n"
+                + (key == null ? "" : "Authorization: Bearer " + key + "\r\n")
+                + "Content-Type: multipart/form-data; boundary=" + BOUNDARY + "\r\n"
+                + "Content-Length: " + contentLength + "\r\n"
+                + "Connection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII);
+    }
+
+    /** The status code of the first response line on a raw socket. */
+    static int readStatus(Socket socket) throws Exception {
+        InputStream in = socket.getInputStream();
+        StringBuilder line = new StringBuilder();
+        int c;
+        while ((c = in.read()) != -1 && c != '\n') {
+            line.append((char) c);
+        }
+        assertThat(line.toString()).as("status line").startsWith("HTTP/1.1 ");
+        return Integer.parseInt(line.substring(9, 12));
     }
 
     HttpResponse<String> postJson(String key, String path, String json) throws Exception {

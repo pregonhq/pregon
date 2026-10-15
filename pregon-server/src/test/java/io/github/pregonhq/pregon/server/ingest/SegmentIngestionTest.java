@@ -2,8 +2,6 @@ package io.github.pregonhq.pregon.server.ingest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -158,18 +156,8 @@ class SegmentIngestionTest extends IngestTestSupport {
             byte[] body = multipart(metadata(t.sourceId()), OggOpus.silence(500, 0));
             Instant sent = Instant.now();
 
-            try (Socket socket = new Socket("localhost", port)) {
-                OutputStream out = socket.getOutputStream();
-                out.write(("PUT /v1/segments/" + id + " HTTP/1.1\r\n"
-                        + "Host: localhost:" + port + "\r\n"
-                        + "Authorization: Bearer " + t.ingestKey() + "\r\n"
-                        + "Content-Type: multipart/form-data; boundary=" + BOUNDARY + "\r\n"
-                        + "Content-Length: " + body.length + "\r\n"
-                        + "Connection: close\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
-                out.write(body);
-                out.flush();
-                InputStream in = socket.getInputStream();
-                assertThat(in.read()).as("the server started answering").isNotEqualTo(-1);
+            try (Socket socket = openPartialUpload(t.ingestKey(), id, body, body.length)) {
+                assertThat(socket.getInputStream().read()).as("the server started answering").isNotEqualTo(-1);
             }
 
             HttpResponse<String> retry = putSegment(t.ingestKey(), id, body);
