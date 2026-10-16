@@ -1,5 +1,5 @@
 # ADR-0002: Everything in containers, selected by Compose profiles
-Status: Accepted (Redis replaced by Valkey in ADR-0019)
+Status: Accepted (Redis replaced by Valkey in ADR-0019; server image layout in ADR-0026)
 
 ## Decision
 All services ship as container images. Docker Compose profiles: `lite` (MVP: server, PostgreSQL,
