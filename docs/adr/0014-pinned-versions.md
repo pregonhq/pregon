@@ -15,7 +15,8 @@ Versions verified on 2026-10-14 against official sources:
 
 | Component | Version | Notes |
 |---|---|---|
-| JDK (build and runtime) | Eclipse Temurin 25.0.4 | `core`/`spi` also built and tested on Temurin 17.0.20 in CI (ADR-0021) |
+| JDK (build and runtime) | Eclipse Temurin 25.0.4.1 | `core`/`spi` also built and tested on Temurin 17.0.20 in CI (ADR-0021); the server image links its own runtime from the Alpine JDK (ADR-0026) |
+| Alpine (server runtime image) | 3.24.2 | released 2026-09-18; see ADR-0026 |
 | Spring Boot | 4.1.1 | OSS support until 2027-07-31 (4.0 ends 2026-12-31) |
 | Spring Framework | 7.0.9 | managed by Boot |
 | Flyway | 12.4.0 | managed by Boot (13.x exists but Boot 4.1 is tested with 12.x) |
