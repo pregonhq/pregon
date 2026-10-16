@@ -1,0 +1,6 @@
+# Test dependencies of the STT sidecar, on top of requirements.in. Same 14-day rule (ADR-0014).
+# -c pins every shared transitive dependency (anyio, idna, h11...) to the runtime version.
+-c requirements.txt
+pytest==9.1.1
+# FastAPI's TestClient speaks HTTP through httpx.
+httpx==0.28.1
