@@ -1,5 +1,5 @@
 # ADR-0025: Ingestion hot path, quotas and queue under sustained load
-Status: Proposed (refines ADR-0024; amends the Segment row of ADR-0022 for retention)
+Status: Accepted 2026-10-16 (refines ADR-0024; amends the Segment row of ADR-0022 for retention)
 
 ## Context
 ADR-0024 fixes *what* ingestion guarantees. This ADR fixes *how* it stays cheap when thousands
@@ -31,9 +31,12 @@ Every rejection happens at the cheapest stage that can decide it (ADR-0001 appli
 
 ### 2. Authentication without round trips
 Resolved keys are cached in memory (`id → tenant, scopes, secret hash`) with a short TTL; the
-secret is still compared in constant time on every request. A revoked key keeps working for at
-most the TTL (`PREGON_AUTH_CACHE_TTL`): this revocation window is documented, not hidden.
-`last_used_at` is recorded in memory and flushed once a minute in a single batched `UPDATE`.
+secret is still compared in constant time on every request. Revoking a key (`pregon keys revoke` or the
+Admin API) evicts it from the local cache and publishes the eviction over Valkey pub/sub, like
+sources (§3), so revocation is immediate in the normal case. The TTL (`PREGON_AUTH_CACHE_TTL`, 30 s)
+is the bound when that message is lost: a revoked key never works for longer. This revocation
+window is documented, not hidden. `last_used_at` is recorded in memory and flushed once a minute
+in a single batched `UPDATE`.
 
 ### 3. Sources from memory
 `(tenant, sourceId) → status` is cached with a short TTL and invalidated explicitly when the Admin
@@ -112,11 +115,21 @@ the tenant and bloats. Instead:
   `source` (missing before this ADR).
 - **`segment` is partitioned by range of `id`.** A UUIDv7 carries its timestamp in the high 48
   bits, so a range of ids is a range of time and a primary-key lookup prunes to one partition.
-  Monthly partitions; `PREGON_RETENTION_SEGMENTS` drops old ones (`DROP`, instant, no vacuum).
-  Deduplication only needs the window in which an agent can still retry (its RAM buffer: hours),
-  so old partitions are never consulted. Interactions reference segment ids as values, without a
-  foreign key, since the partition may be gone. This amends ADR-0022: segment metadata is kept
-  for the retention period, not forever.
+  Monthly partitions; `PREGON_RETENTION_SEGMENTS` (`P1M`) drops old ones (`DROP`, instant, no
+  vacuum), so between one and two months of metadata exist at any time. Deduplication only needs
+  the window in which an agent can still retry (its RAM buffer: hours); auditing which segments
+  formed an interaction needs days; KPIs live in interactions and matches, never in segments. At
+  1 000 sources a month of rows and indexes is about 40 GB, a quarter about 120 GB: more than a
+  mini PC should spend on data nobody queries. Interactions reference segment ids as values,
+  without a foreign key, since the partition may be gone. This amends ADR-0022: segment metadata
+  is kept for the retention period, not forever.
+- **Partitions exist before they are needed.** An insert into a month without a partition fails,
+  which would take ingestion down at midnight on the first of the month. The server creates the
+  partitions for the current month and the next two at startup and once a day, and the table has a
+  `DEFAULT` partition as a safety net. The `DEFAULT` partition also receives segments whose UUIDv7
+  carries an absurd timestamp (an agent with a wrong clock): they are stored and flagged by the
+  clock-skew check instead of failing with a `500`. Rows in `DEFAULT` are counted; a non-zero count
+  is an operational signal.
 
 ### 9. Queue and workers
 ```
@@ -151,9 +164,23 @@ Counters per rejection reason (`413`, `400`, `401`, `403`, `404`, `409`, `503-in
 `503-quota`), accepted and duplicate uploads, queued bytes per tenant, drain rate, expired leases,
 `FAILED` segments and the latency of the insert statement.
 
-## Open for the maintainer
-- `PREGON_AUTH_CACHE_TTL`: 30 s or 60 s (the revocation window).
-- `PREGON_RETENTION_SEGMENTS`: how long segment metadata is kept (proposed `P3M`).
+## Decided by the maintainer (2026-10-16)
+- `PREGON_AUTH_CACHE_TTL = PT30S`. Halving the TTL halves the revocation window; the cost (one
+  primary-key lookup per key every 30 s, a few hundred per second at 10 000 sources) is noise.
+- `PREGON_RETENTION_SEGMENTS = P1M`, for the reasons in §8.
+
+## Rollout
+The design is accepted whole; the code lands in two steps, so that a single maintainer never has
+correctness and performance in the same change:
+1. **Correctness** (the branch of PR #18): migration V3 with the partitioned `segment`, the queue
+   implementing `SegmentQueue`, the endpoint, the limits and the quotas, until the red tests are
+   green. Quotas may start as a `SUM(audio_bytes)` over the partial index: at the queue sizes of
+   `docs/capacity.md` it is cheap, and the tests cannot tell the difference.
+2. **Performance**: the caches (§2, §3), batched `last_used_at`, in-memory counters (§7), the
+   drain-based `Retry-After` and `LISTEN/NOTIFY`, each with a load test (k6) showing the before
+   and the after. An optimization without a measurement is a claim, not a result.
+Partitioning is in step 1 because PostgreSQL cannot turn a regular table into a partitioned one
+later without copying it.
 
 ## Consequences
 The happy path costs one database statement, one SHA-256 pass and no disk; memory is bounded by

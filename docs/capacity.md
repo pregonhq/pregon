@@ -37,6 +37,8 @@ transcription accumulates; its size, not the upload rate, drives `Retry-After`.
 | `PREGON_INGEST_RETRY_AFTER_MAX` | 5 min | an agent buffer holds hours, so waiting minutes loses nothing |
 | `PREGON_INGEST_QUOTA_RECONCILE` | 10 s | how far in-memory counters may drift from the database |
 | `PREGON_STT_LEASE` | 2 min | a 10 s segment transcribes in seconds; a lease that long only expires on a dead worker |
+| `PREGON_AUTH_CACHE_TTL` | 30 s | one primary-key lookup per key every 30 s: ~330/s at 10 000 sources, noise for PostgreSQL; the TTL is the revocation bound when the eviction message is lost |
+| `PREGON_RETENTION_SEGMENTS` | 1 month | ~120 B/row + indexes ≈ 40 GB/month at 1 000 sources; dedup needs hours, audit needs days, KPIs never read segments |
 
 ## Costs per upload on the happy path (ADR-0025)
 - 0 database round trips for authentication and source lookup (in-memory caches).
