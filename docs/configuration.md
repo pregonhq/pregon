@@ -37,6 +37,20 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 
 The reason for each default is documented next to the setting when it is implemented.
 
+### STT sidecar — tunable parameters, documented defaults
+
+The sidecar reads its own variables (`stt-sidecar/README.md`). `PREGON_STT_MODEL`, `PREGON_STT_DEVICE`
+and `PREGON_STT_COMPUTE_TYPE` above are passed through to it by Compose when set in `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PREGON_STT_MODEL_DIR` | `/models` | Where models are downloaded on first start and read from (a volume in Compose) |
+| `PREGON_STT_CPU_THREADS` | `0` | Threads for one transcription; `0` lets the engine decide |
+| `PREGON_STT_BEAM_SIZE` | `5` | Beam search width; `1` is faster and a little less accurate |
+| `PREGON_STT_CONCURRENCY` | `1` | Batches transcribed at once; on CPU one batch already uses every core |
+| `PREGON_STT_MAX_BATCH` | `16` | Segments accepted per request; the contract caps it at 64 |
+| `PREGON_STT_MAX_SEGMENT_BYTES` | `1048576` | Largest audio part, aligned with `PREGON_INGEST_MAX_SEGMENT_BYTES` |
+
 ## Business configuration (API / YAML)
 - **Locations**: id, name, timezone, shifts (named weekly windows in local time).
 - **Sources**: id, location, input (mic/rtsp/file), optional role, operating hours.

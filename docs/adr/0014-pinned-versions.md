@@ -29,6 +29,7 @@ Versions verified on 2026-10-14 against official sources:
 | PostgreSQL (image) | 18.6 | supported until 2030-11 |
 | Valkey (image) | 9.1.2 | see ADR-0019 |
 | faster-whisper | 1.2.1 | sidecar; Python deps pinned in a lock file under the same 14-day rule |
+| PyAV | 18.1.0 | sidecar; 19.x removed an argument faster-whisper 1.2.1 still passes, so every decode fails (verified 2026-10-16) |
 
 Spring AI (2.0.x, Boot 4 compatible) is noted for later phases, inside adapters only (ADR-0012).
 No OpenAPI code generator is pinned yet; it is chosen with the first implemented endpoint.

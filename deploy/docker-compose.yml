@@ -48,6 +48,14 @@ services:
     build:
       context: ../stt-sidecar
     image: ghcr.io/pregonhq/pregon-stt:dev
+    # Tunables pass through from .env when set; unset, the sidecar applies its documented defaults.
+    environment:
+      - PREGON_STT_MODEL
+      - PREGON_STT_DEVICE
+      - PREGON_STT_COMPUTE_TYPE
+    volumes:
+      # The Whisper model is downloaded here on first start (ADR-0002); audio never touches it.
+      - stt-models:/models
     read_only: true
     tmpfs: [/tmp]
     restart: unless-stopped
@@ -82,3 +90,4 @@ services:
 
 volumes:
   postgres-data:
+  stt-models:

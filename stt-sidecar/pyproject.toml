@@ -1,0 +1,7 @@
+# Test configuration only; dependencies live in requirements*.in (see README.md).
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "model: loads the real faster-whisper model (downloads 'tiny' on first run)",
+]
