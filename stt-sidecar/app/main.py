@@ -95,11 +95,11 @@ def create_app(
                 reader.feed(chunk)
             reader.finish()
         except PartTooLarge as error:
-            return problem(413, str(error))
+            return problem(413, error.reason)
         except TooManyParts:
             return problem(400, f"at most {settings.max_batch} segments per request")
         except MultipartError as error:
-            return problem(400, str(error))
+            return problem(400, error.reason)
 
         parts: dict[str, bytes] = {}
         for part in reader.parts:

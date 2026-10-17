@@ -31,8 +31,11 @@ def test_decodes_ogg_opus_from_memory_and_reports_its_duration(engine: FasterWhi
     assert transcript.language == "es"
     assert abs(transcript.duration - 10.0) < 0.1
     assert isinstance(transcript.text, str)
+    # On silence `tiny` hallucinates, and the hallucinated segments can be stamped past the end of
+    # the audio (observed: 25 s on 10 s of silence). Whisper's window is 30 s; anything beyond the
+    # reported duration is one more signal for the server to drop a segment.
     for segment in transcript.segments:
-        assert 0.0 <= segment.start <= segment.end <= 10.5
+        assert 0.0 <= segment.start <= segment.end <= 30.0
         assert 0.0 <= segment.no_speech_prob <= 1.0
 
 

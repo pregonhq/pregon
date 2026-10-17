@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -95,19 +96,21 @@ class TestHealth:
             assert refused.headers["retry-after"]
             release.set()
 
-    def test_down_with_the_reason_when_the_model_failed_to_load(self):
+    def test_down_when_the_model_failed_to_load_and_the_cause_stays_in_the_log(self, caplog):
         def broken_factory():
-            raise RuntimeError("no such model: fake")
+            raise RuntimeError("no such model: /models/hf/fake")
 
         loader = ModelLoader(broken_factory)
-        with TestClient(create_app(SETTINGS, loader=loader)) as client:
+        with caplog.at_level(logging.ERROR, logger="pregon.stt"), TestClient(create_app(SETTINGS, loader=loader)) as client:
             for _ in range(100):
                 if loader.detail != "loading model":
                     break
                 threading.Event().wait(0.02)
             health = client.get("/health")
             assert health.status_code == 503
-            assert "no such model" in health.json()["detail"]
+            assert health.json()["detail"] == "model failed to load"
+            assert "/models/hf/fake" not in health.text
+            assert "/models/hf/fake" in caplog.text
 
 
 class TestTranscribe:

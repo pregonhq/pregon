@@ -12,7 +12,14 @@ from python_multipart.multipart import MultipartParser, parse_options_header
 
 
 class MultipartError(ValueError):
-    """The body is not the multipart/form-data the contract describes."""
+    """The body is not the multipart/form-data the contract describes.
+
+    `reason` is the text safe to return to the client; it never comes from another exception.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class PartTooLarge(MultipartError):
@@ -25,6 +32,7 @@ class PartTooLarge(MultipartError):
 class TooManyParts(MultipartError):
     def __init__(self, limit: int) -> None:
         super().__init__(f"more than {limit} parts")
+        self.limit = limit
 
 
 @dataclass

@@ -143,5 +143,6 @@ class ModelLoader:
             if self._transcriber is not None:
                 return None
             if self._error is not None:
-                return f"model failed to load: {self._error}"
+                # The cause is in the log only: exception text can carry paths and URLs.
+                return "model failed to load"
             return "loading model"
