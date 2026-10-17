@@ -1,4 +1,12 @@
 # Direct dependencies of the STT sidecar. requirements.txt is generated from this file:
-#   see stt-sidecar/README.md. faster-whisper is added in Phase 1 with transcription.
+#   see stt-sidecar/README.md. Versions follow the 14-day rule (ADR-0014).
 fastapi==0.142.2
 uvicorn==0.54.0
+# Streaming multipart parser: audio parts stay in memory and are bounded while they arrive.
+python-multipart==0.0.32
+faster-whisper==1.2.1
+# faster-whisper's engine; pinned here because the newest release is inside the 14-day window.
+ctranslate2==4.8.2
+# PyAV 19 removed the metadata_errors argument that faster-whisper 1.2.1 still passes to av.open:
+# decoding fails on every file. Stays on 18.x until faster-whisper catches up.
+av==18.1.0

@@ -15,7 +15,8 @@ Versions verified on 2026-10-14 against official sources:
 
 | Component | Version | Notes |
 |---|---|---|
-| JDK (build and runtime) | Eclipse Temurin 25.0.4 | `core`/`spi` also built and tested on Temurin 17.0.20 in CI (ADR-0021) |
+| JDK (build and runtime) | Eclipse Temurin 25.0.4.1 | `core`/`spi` also built and tested on Temurin 17.0.20 in CI (ADR-0021); the server image links its own runtime from the Alpine JDK (ADR-0026) |
+| Alpine (server runtime image) | 3.24.2 | released 2026-09-18; see ADR-0026 |
 | Spring Boot | 4.1.1 | OSS support until 2027-07-31 (4.0 ends 2026-12-31) |
 | Spring Framework | 7.0.9 | managed by Boot |
 | Flyway | 12.4.0 | managed by Boot (13.x exists but Boot 4.1 is tested with 12.x) |
@@ -28,6 +29,7 @@ Versions verified on 2026-10-14 against official sources:
 | PostgreSQL (image) | 18.6 | supported until 2030-11 |
 | Valkey (image) | 9.1.2 | see ADR-0019 |
 | faster-whisper | 1.2.1 | sidecar; Python deps pinned in a lock file under the same 14-day rule |
+| PyAV | 18.1.0 | sidecar; 19.x removed an argument faster-whisper 1.2.1 still passes, so every decode fails (verified 2026-10-16) |
 
 Spring AI (2.0.x, Boot 4 compatible) is noted for later phases, inside adapters only (ADR-0012).
 No OpenAPI code generator is pinned yet; it is chosen with the first implemented endpoint.
