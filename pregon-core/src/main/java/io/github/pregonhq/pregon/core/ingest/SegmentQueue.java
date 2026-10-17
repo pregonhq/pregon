@@ -1,0 +1,54 @@
+package io.github.pregonhq.pregon.core.ingest;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Port to the persistent queue of segments waiting for transcription (ADR-0024 §4 and §8,
+ * ADR-0025 §9). Enqueuing is not here: it happens inside the ingestion transaction, together with
+ * the segment record, so there is no state where one exists without the other.
+ *
+ * <p>A job is owned by whoever claimed it until its lease expires. The attempt number is the lease
+ * token: a worker that outlived its lease cannot overwrite the result of the worker that claimed
+ * the job after it. The attempt is counted on claim, so a worker that dies without reporting still
+ * burns one; after the configured maximum the segment is {@code FAILED} and its audio deleted.
+ *
+ * <p>Implementations take a {@link java.time.Clock}, so lease expiry can be tested without waiting.
+ */
+public interface SegmentQueue {
+
+    /**
+     * Takes up to {@code max} jobs in capture order, each leased until {@code now + lease}. A job
+     * whose previous lease expired is handed out again with the next attempt number, unless that
+     * would exceed the maximum: then it becomes {@code FAILED} instead and is not returned.
+     * Concurrent callers never receive the same job.
+     */
+    List<Job> claim(int max, Duration lease);
+
+    /** The segment was transcribed: its audio is deleted and the job leaves the queue. */
+    CompleteOutcome complete(UUID segmentId, int attempt);
+
+    /**
+     * Transcription failed: the job returns to the queue, or becomes {@code FAILED} when this was
+     * the last allowed attempt. {@code reason} is kept for diagnostics.
+     */
+    FailOutcome fail(UUID segmentId, int attempt, String reason);
+
+    /** A leased segment, with the audio the worker needs. */
+    record Job(UUID segmentId, String tenantId, UUID sourceId, int attempt, Instant leaseUntil, byte[] audio) {
+    }
+
+    enum CompleteOutcome {
+        COMPLETED,
+        /** The attempt is not the current lease: the lease expired and the job was claimed again, or it was already done. */
+        STALE
+    }
+
+    enum FailOutcome {
+        REQUEUED,
+        FAILED,
+        STALE
+    }
+}

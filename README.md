@@ -91,6 +91,7 @@ The embeddable modules can be checked on a JDK 17 with `./mvnw -pl pregon-spi,pr
 - [Vision and scope](docs/vision.md)
 - [Architecture decisions (ADRs)](docs/adr)
 - [Configuration](docs/configuration.md)
+- [Capacity model](docs/capacity.md)
 - [Roadmap](ROADMAP.md)
 - [Contributing](CONTRIBUTING.md)
 

@@ -9,3 +9,7 @@ Thanks for your interest! The project is early, so design discussions are as val
 5. Never include secrets, real recordings or personal data in issues, tests or fixtures.
    Use synthetic or openly licensed audio only.
 6. Write everything in English: code, comments, docs, commits, issues and PRs.
+7. `./mvnw verify` runs everything (Docker is needed for Testcontainers). While a feature is being
+   built test-first, its tests are red on purpose; to check the rest of the build alone exclude
+   their package, e.g. `./mvnw verify -Dtest='!**/ingest/**' -Dsurefire.failIfNoSpecifiedTests=false`
+   (a class pattern such as `!Segment*Test` does not reach nested test classes).
