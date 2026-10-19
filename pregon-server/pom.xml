@@ -30,6 +30,10 @@
     <dependencies>
         <dependency>
             <groupId>io.github.pregonhq</groupId>
+            <artifactId>pregon-spi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.pregonhq</groupId>
             <artifactId>pregon-core</artifactId>
         </dependency>
         <dependency>
