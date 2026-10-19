@@ -16,7 +16,7 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_DB_USER` | PostgreSQL user | yes |
 | `PREGON_DB_PASSWORD` | PostgreSQL password | no — from `.env` (`POSTGRES_PASSWORD`) |
 | `PREGON_REDIS_URL` | Valkey/Redis URL (ADR-0019) | yes, points to the `valkey` service |
-| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015); required once the server calls the sidecar (Phase 1) | yes, points to the `stt` service |
+| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015), e.g. `http://stt:8000`. The one connection that may be absent: without it the server accepts segments and runs no transcription workers (ADR-0025), and the `stt` health component does not exist | yes, points to the `stt` service |
 
 ### Tunable parameters — documented defaults
 
@@ -32,6 +32,8 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_INGEST_MAX_SEGMENT_BYTES` | `1048576` | Largest accepted segment (1 MiB, about 5 min of Opus at 24 kbit/s) |
 | `PREGON_INGEST_QUEUE_MAX_BYTES` | `268435456` | Queue size per tenant before `503` (256 MiB, about 25 h of speech at 24 kbit/s) |
 | `PREGON_INGEST_CLOCK_SKEW_THRESHOLD` | `PT2M` | Capture end vs arrival time beyond which a segment is flagged |
+| `PREGON_STT_BATCH` | `16` | Segments the server sends to the sidecar per request. Equal to the sidecar's `PREGON_STT_MAX_BATCH`; the contract caps both at 64 |
+| `PREGON_STT_TIMEOUT` | `PT5M` | How long one batch may take end to end before it is retried later. 16 segments of 10 s at 1× real time on a CPU take under 3 min; the rest is room for a cold cache |
 | `PREGON_STT_LEASE` | `PT2M` | How long a worker owns a job before it returns to the queue |
 | `PREGON_STT_MAX_ATTEMPTS` | `3` | Failed attempts before a segment is `FAILED` and its audio deleted |
 
