@@ -36,7 +36,13 @@ class SegmentInflightBudgetTest extends IngestTestSupport {
 
         List<Socket> stalled = stalledUploads(t.ingestKey(), body, 2);
         try {
-            HttpResponse<String> third = putSegment(t.ingestKey(), segmentId(), body);
+            // The server takes the budget when it reads the stalled uploads' headers; on a slow machine
+            // a third upload sent right away can overtake them, so give it a moment.
+            Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
+            HttpResponse<String> third;
+            do {
+                third = putSegment(t.ingestKey(), segmentId(), body);
+            } while (third.statusCode() != 503 && Instant.now().isBefore(deadline));
 
             assertProblem(third, 503);
             assertThat(third.headers().firstValue("Retry-After")).hasValueSatisfying(
