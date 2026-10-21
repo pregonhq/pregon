@@ -9,4 +9,4 @@ faster-whisper==1.2.1
 ctranslate2==4.8.2
 # PyAV 19 removed the metadata_errors argument that faster-whisper 1.2.1 still passes to av.open:
 # decoding fails on every file. Stays on 18.x until faster-whisper catches up.
-av==18.1.0
+av==19.0.1
