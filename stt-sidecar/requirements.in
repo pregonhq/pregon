@@ -1,6 +1,6 @@
 # Direct dependencies of the STT sidecar. requirements.txt is generated from this file:
 #   see stt-sidecar/README.md. Versions follow the 14-day rule (ADR-0014).
-fastapi==0.142.2
+fastapi==0.142.4
 uvicorn==0.54.0
 # Streaming multipart parser: audio parts stay in memory and are bounded while they arrive.
 python-multipart==0.0.32
