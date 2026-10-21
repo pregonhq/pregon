@@ -97,9 +97,14 @@ abstract class IngestTestSupport {
 
     /** A UUIDv7, as agents generate them (ADR-0022): 48-bit Unix milliseconds, version 7, variant 2. */
     static String segmentId() {
+        return segmentIdAt(Instant.now()).toString();
+    }
+
+    /** A UUIDv7 whose timestamp is {@code at}: what an agent generated when the segment was captured. */
+    static UUID segmentIdAt(Instant at) {
         UUID random = UUID.randomUUID();
-        long msb = (System.currentTimeMillis() << 16) | 0x7000L | (random.getMostSignificantBits() & 0x0FFFL);
-        return new UUID(msb, random.getLeastSignificantBits()).toString();
+        long msb = (at.toEpochMilli() << 16) | 0x7000L | (random.getMostSignificantBits() & 0x0FFFL);
+        return new UUID(msb, random.getLeastSignificantBits());
     }
 
     static byte[] multipart(String metadata, byte[] audio) {

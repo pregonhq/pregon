@@ -12,7 +12,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  */
 public final class InfrastructureContainers {
 
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6");
+    // Every test context keeps its own connection pool for the whole run; the default 100 connections
+    // ran out once ingestion added its contexts.
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18.6")
+            .withCommand("postgres", "-c", "max_connections=300");
 
     static final GenericContainer<?> VALKEY =
             new GenericContainer<>("valkey/valkey:9.1.2").withExposedPorts(6379);
