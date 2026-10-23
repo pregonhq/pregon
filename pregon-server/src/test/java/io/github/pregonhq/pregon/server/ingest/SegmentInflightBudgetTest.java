@@ -36,13 +36,7 @@ class SegmentInflightBudgetTest extends IngestTestSupport {
 
         List<Socket> stalled = stalledUploads(t.ingestKey(), body, 2);
         try {
-            // The server takes the budget when it reads the stalled uploads' headers; on a slow machine
-            // a third upload sent right away can overtake them, so give it a moment.
-            Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
-            HttpResponse<String> third;
-            do {
-                third = putSegment(t.ingestKey(), segmentId(), body);
-            } while (third.statusCode() != 503 && Instant.now().isBefore(deadline));
+            HttpResponse<String> third = putUntil(t.ingestKey(), body, 503);
 
             assertProblem(third, 503);
             assertThat(third.headers().firstValue("Retry-After")).hasValueSatisfying(
@@ -58,17 +52,27 @@ class SegmentInflightBudgetTest extends IngestTestSupport {
         byte[] body = multipart(metadata(t.sourceId()), OggOpus.ofSize(SEGMENT));
 
         List<Socket> stalled = stalledUploads(t.ingestKey(), body, 2);
-        assertProblem(putSegment(t.ingestKey(), segmentId(), body), 503);
+        assertProblem(putUntil(t.ingestKey(), body, 503), 503);
         close(stalled);
 
-        // The server learns of the disconnection when it next reads the socket; give it a moment.
+        HttpResponse<String> response = putUntil(t.ingestKey(), body, 202);
+
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(202);
+    }
+
+    /**
+     * Uploads fresh segments until one is answered with {@code status} or five seconds pass, and returns
+     * the last answer. The server takes the budget only when it reads a stalled upload's headers and
+     * gives it back only when it next reads a closed socket; on a slow machine both happen after an
+     * upload sent right away, so the first answers may still show the previous state.
+     */
+    private HttpResponse<String> putUntil(String key, byte[] body, int status) throws Exception {
         Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
         HttpResponse<String> response;
         do {
-            response = putSegment(t.ingestKey(), segmentId(), body);
-        } while (response.statusCode() == 503 && Instant.now().isBefore(deadline));
-
-        assertThat(response.statusCode()).as(response.body()).isEqualTo(202);
+            response = putSegment(key, segmentId(), body);
+        } while (response.statusCode() != status && Instant.now().isBefore(deadline));
+        return response;
     }
 
     @Test
