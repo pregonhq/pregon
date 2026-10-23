@@ -31,13 +31,21 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_RETENTION_TRANSCRIPTS` | `none` | `none` or a duration, e.g. `P30D` |
 | `PREGON_INGEST_MAX_SEGMENT_BYTES` | `1048576` | Largest accepted segment (1 MiB, about 5 min of Opus at 24 kbit/s) |
 | `PREGON_INGEST_QUEUE_MAX_BYTES` | `268435456` | Queue size per tenant before `503` (256 MiB, about 25 h of speech at 24 kbit/s) |
+| `PREGON_INGEST_QUEUE_SOURCE_SHARE` | `0.5` | Largest fraction of the tenant's queue one source may hold, so a noisy source cannot starve the others |
+| `PREGON_INGEST_RETRY_AFTER_MIN` | `PT5S` | Smallest `Retry-After` of a `503`, used while no transcription rate has been observed yet |
+| `PREGON_INGEST_RETRY_AFTER_MAX` | `PT5M` | Largest `Retry-After` of a `503` (ADR-0025) |
+| `PREGON_INGEST_INFLIGHT_MAX_BYTES` | `67108864` | Upload bytes held in memory at once before an immediate `503` (64 MiB, ADR-0025) |
+| `PREGON_INGEST_QUOTA_RECONCILE` | `PT10S` | How often in-memory queue counters are reconciled with the database (ADR-0025) |
+| `PREGON_AUTH_CACHE_TTL` | `PT30S` | How long a resolved API key is cached. Revoking evicts it immediately; this is the bound if that message is lost (ADR-0025) |
+| `PREGON_RETENTION_SEGMENTS` | `P1M` | How long segment metadata is kept; older monthly partitions are dropped, so 1 to 2 months exist at any time (ADR-0025) |
 | `PREGON_INGEST_CLOCK_SKEW_THRESHOLD` | `PT2M` | Capture end vs arrival time beyond which a segment is flagged |
 | `PREGON_STT_BATCH` | `16` | Segments the server sends to the sidecar per request. Equal to the sidecar's `PREGON_STT_MAX_BATCH`; the contract caps both at 64 |
 | `PREGON_STT_TIMEOUT` | `PT5M` | How long one batch may take end to end before it is retried later. 16 segments of 10 s at 1× real time on a CPU take under 3 min; the rest is room for a cold cache |
 | `PREGON_STT_LEASE` | `PT2M` | How long a worker owns a job before it returns to the queue |
 | `PREGON_STT_MAX_ATTEMPTS` | `3` | Failed attempts before a segment is `FAILED` and its audio deleted |
 
-The reason for each default is documented next to the setting when it is implemented.
+The reason for each default is documented next to the setting when it is implemented; the
+ingestion and queue defaults are derived in `docs/capacity.md`.
 
 ### STT sidecar — tunable parameters, documented defaults
 

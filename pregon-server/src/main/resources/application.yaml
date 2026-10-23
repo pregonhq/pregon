@@ -22,6 +22,12 @@ spring:
       # An API serves no static files; without this a 404 talks about static resources.
       add-mappings: false
 
+server:
+  tomcat:
+    # A request refused before its body is read does not get its body read anyway (ADR-0025 §4):
+    # past this many bytes Tomcat closes the connection instead of swallowing the upload.
+    max-swallow-size: 65536
+
 management:
   endpoints:
     web:

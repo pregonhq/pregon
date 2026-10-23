@@ -13,7 +13,7 @@
 - [ ] Capture agent: mic, RTSP and WAV-replay sources; ring buffer; adaptive energy gate;
       Silero VAD; hysteresis segmenter; Opus; idempotent upload with retries
 - [ ] Operating hours per source (agent only listens during business hours)
-- [ ] Server: ingestion API, persistent queue, retention policy (delete audio after transcription)
+- [x] Server: ingestion API, persistent queue, retention policy (delete audio after transcription)
 - [x] STT sidecar: faster-whisper, fixed language, campaign phrases as initial prompt, batching
 - [ ] Campaign rules: keywords, synonyms, fuzzy matching (Spanish normalizer behind an interface)
 - [ ] Interactions by silence gap; match-rate KPI (offer rate as the main case) per location, role, source and shift via API
