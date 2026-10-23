@@ -25,3 +25,6 @@ dist/
 # Python
 __pycache__/
 .pytest_cache/
+
+# Load test summaries (load/README.md)
+load/results/
