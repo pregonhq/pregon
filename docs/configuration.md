@@ -16,19 +16,19 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_DB_USER` | PostgreSQL user | yes |
 | `PREGON_DB_PASSWORD` | PostgreSQL password | no — from `.env` (`POSTGRES_PASSWORD`) |
 | `PREGON_REDIS_URL` | Valkey/Redis URL (ADR-0019) | yes, points to the `valkey` service |
-| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015), e.g. `http://stt:8000`. The one connection that may be absent: without it the server accepts segments and runs no transcription workers (ADR-0025), and the `stt` health component does not exist | yes, points to the `stt` service |
+| `PREGON_STT_URL` | STT sidecar base URL (ADR-0015), e.g. `http://stt:8000`. The one connection that may be absent: without it the server accepts segments and runs no transcription worker (ADR-0025, ADR-0027), and the `stt` health component does not exist | yes, points to the `stt` service |
 
 ### Tunable parameters — documented defaults
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PREGON_TENANT_DEFAULT` | `default` | Tenant used when none is given |
-| `PREGON_LANGUAGE` | `es` | Single audio language for the installation (MVP) |
+| `PREGON_LANGUAGE` | `es` | Single audio language for the installation (ADR-0008), an ISO 639 code; sent to the sidecar with every batch |
 | `PREGON_STT_MODEL` | `small` | Whisper model size: tiny, base, small… |
 | `PREGON_STT_DEVICE` | `cpu` | `cpu` or `cuda` |
 | `PREGON_STT_COMPUTE_TYPE` | `int8` | Quantization |
-| `PREGON_RETENTION_AUDIO` | `delete-after-transcription` | Or a duration for debugging, e.g. `PT2H` |
-| `PREGON_RETENTION_TRANSCRIPTS` | `none` | `none` or a duration, e.g. `P30D` |
+| `PREGON_RETENTION_AUDIO` | `delete-after-transcription` | The only value implemented: the bytes are deleted when the segment is transcribed or fails (ADR-0006). Any other value is refused at startup |
+| `PREGON_RETENTION_TRANSCRIPTS` | `none` | `none` or an ISO 8601 duration, e.g. `P30D`. With `none` no transcript is ever stored and `GET /v1/segments/{id}` shows states only; with a duration, transcripts are kept that long and purged daily (ADR-0027) |
 | `PREGON_INGEST_MAX_SEGMENT_BYTES` | `1048576` | Largest accepted segment (1 MiB, about 5 min of Opus at 24 kbit/s) |
 | `PREGON_INGEST_QUEUE_MAX_BYTES` | `268435456` | Queue size per tenant before `503` (256 MiB, about 25 h of speech at 24 kbit/s) |
 | `PREGON_INGEST_QUEUE_SOURCE_SHARE` | `0.5` | Largest fraction of the tenant's queue one source may hold, so a noisy source cannot starve the others |
@@ -41,7 +41,8 @@ before the first start is `cp deploy/.env.example deploy/.env` and setting the s
 | `PREGON_INGEST_CLOCK_SKEW_THRESHOLD` | `PT2M` | Capture end vs arrival time beyond which a segment is flagged |
 | `PREGON_STT_BATCH` | `16` | Segments the server sends to the sidecar per request. Equal to the sidecar's `PREGON_STT_MAX_BATCH`; the contract caps both at 64 |
 | `PREGON_STT_TIMEOUT` | `PT5M` | How long one batch may take end to end before it is retried later. 16 segments of 10 s at 1× real time on a CPU take under 3 min; the rest is room for a cold cache |
-| `PREGON_STT_LEASE` | `PT2M` | How long a worker owns a job before it returns to the queue |
+| `PREGON_STT_LEASE` | `PT6M` | How long a worker owns a claimed job before it returns to the queue. Must be longer than `PREGON_STT_TIMEOUT`, or a batch still in flight would be handed to a second worker: the timeout plus a minute to claim, store and report (ADR-0027) |
+| `PREGON_STT_POLL` | `PT2S` | How long the worker waits when the queue is empty before looking again; also the pause after a sidecar failure. A 10 s segment can afford it; waking on `LISTEN/NOTIFY` is ADR-0025's second step |
 | `PREGON_STT_MAX_ATTEMPTS` | `3` | Failed attempts before a segment is `FAILED` and its audio deleted |
 
 The reason for each default is documented next to the setting when it is implemented; the

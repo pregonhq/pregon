@@ -34,7 +34,7 @@ import org.springframework.test.context.DynamicPropertySource;
  * <p>Each test gets its own tenant with real keys and real sources created through the Admin API.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-abstract class IngestTestSupport {
+public abstract class IngestTestSupport {
 
     static final String BOUNDARY = "pregon-test-boundary";
 
@@ -50,15 +50,15 @@ abstract class IngestTestSupport {
     ApiKeys apiKeys;
 
     @Autowired
-    JdbcClient jdbc;
+    protected JdbcClient jdbc;
 
-    final HttpClient http = HttpClient.newHttpClient();
+    protected final HttpClient http = HttpClient.newHttpClient();
 
     /** A tenant with an admin key and an ingest key, and one active source. */
-    record Tenant(String adminKey, String ingestKey, String sourceId) {
+    public record Tenant(String adminKey, String ingestKey, String sourceId) {
     }
 
-    Tenant newTenant() throws Exception {
+    public Tenant newTenant() throws Exception {
         String tenant = "t-" + UUID.randomUUID().toString().substring(0, 8);
         jdbc.sql("INSERT INTO tenant (id) VALUES (:id)").param("id", tenant).update();
         String admin = apiKeys.create(tenant, "admin", Set.of(ApiKeyScope.ADMIN)).value();
@@ -84,7 +84,7 @@ abstract class IngestTestSupport {
     }
 
     /** Metadata of a 10-second segment that ended a moment ago, by a well-synchronized clock. */
-    static String metadata(String sourceId) {
+    public static String metadata(String sourceId) {
         Instant end = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         return metadata(sourceId, end.minusSeconds(10), end);
     }
@@ -96,7 +96,7 @@ abstract class IngestTestSupport {
     }
 
     /** A UUIDv7, as agents generate them (ADR-0022): 48-bit Unix milliseconds, version 7, variant 2. */
-    static String segmentId() {
+    public static String segmentId() {
         return segmentIdAt(Instant.now()).toString();
     }
 
@@ -125,7 +125,7 @@ abstract class IngestTestSupport {
         return body.toByteArray();
     }
 
-    HttpResponse<String> putSegment(String key, String segmentId, String metadata, byte[] audio) throws Exception {
+    public HttpResponse<String> putSegment(String key, String segmentId, String metadata, byte[] audio) throws Exception {
         return putSegment(key, segmentId, multipart(metadata, audio));
     }
 
@@ -181,11 +181,11 @@ abstract class IngestTestSupport {
                 .build(), HttpResponse.BodyHandlers.ofString());
     }
 
-    URI uri(String path) {
+    public URI uri(String path) {
         return URI.create("http://localhost:" + port + path);
     }
 
-    static String json(HttpResponse<String> response, String path) {
+    public static String json(HttpResponse<String> response, String path) {
         return JsonPath.read(response.body(), path).toString();
     }
 
@@ -198,7 +198,7 @@ abstract class IngestTestSupport {
         assertThat(response.statusCode()).as(response.body()).isEqualTo(202);
     }
 
-    static void assertProblem(HttpResponse<String> response, int status) {
+    public static void assertProblem(HttpResponse<String> response, int status) {
         assertThat(response.statusCode()).as(response.body()).isEqualTo(status);
         assertThat(response.headers().firstValue("Content-Type")).hasValueSatisfying(
                 type -> assertThat(type).startsWith("application/problem+json"));

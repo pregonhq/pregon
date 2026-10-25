@@ -12,7 +12,7 @@ import java.util.List;
  * an encoder nor audio files in the repository. Every packet is a single 20 ms CELT frame, mono,
  * at 48 kHz; the payload carries no recorded sound.
  */
-final class OggOpus {
+public final class OggOpus {
 
     private static final int SAMPLES_PER_PACKET = 960;
     private static final int PRE_SKIP = 312;
@@ -37,7 +37,7 @@ final class OggOpus {
     }
 
     /** A valid stream of {@code packets} silent frames; {@code seed} changes the bytes, not the length. */
-    static byte[] silence(int packets, int seed) {
+    public static byte[] silence(int packets, int seed) {
         List<byte[]> audio = new ArrayList<>();
         for (int i = 0; i < packets; i++) {
             audio.add(new byte[] {TOC, (byte) 0xFF, (byte) (0xFE ^ (seed & 0x01))});

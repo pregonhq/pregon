@@ -20,36 +20,36 @@ import com.sun.net.httpserver.HttpServer;
  * it received, with its multipart parts split by name, so the test can check what went over the
  * wire.
  */
-final class FakeSidecar implements AutoCloseable {
+public final class FakeSidecar implements AutoCloseable {
 
-    record Part(Map<String, String> headers, byte[] data) {
+    public record Part(Map<String, String> headers, byte[] data) {
 
         String contentType() {
             return headers.get("content-type");
         }
     }
 
-    record Received(String method, String path, Map<String, String> headers, Map<String, Part> parts) {
+    public record Received(String method, String path, Map<String, String> headers, Map<String, Part> parts) {
     }
 
     private final HttpServer server;
     private final AtomicReference<Received> last = new AtomicReference<>();
     private volatile Function<Received, Scripted> script = received -> new Scripted(200, Map.of(), "{}");
 
-    record Scripted(int status, Map<String, String> headers, String body) {
+    public record Scripted(int status, Map<String, String> headers, String body) {
     }
 
-    FakeSidecar() throws IOException {
+    public FakeSidecar() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", this::handle);
         server.start();
     }
 
-    URI baseUrl() {
+    public URI baseUrl() {
         return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
     }
 
-    void respond(int status, String body) {
+    public void respond(int status, String body) {
         respond(status, Map.of(), body);
     }
 
@@ -57,11 +57,11 @@ final class FakeSidecar implements AutoCloseable {
         script = received -> new Scripted(status, headers, body);
     }
 
-    void respondWith(Function<Received, Scripted> script) {
+    public void respondWith(Function<Received, Scripted> script) {
         this.script = script;
     }
 
-    Received lastRequest() {
+    public Received lastRequest() {
         return last.get();
     }
 
@@ -132,7 +132,7 @@ final class FakeSidecar implements AutoCloseable {
         return -1;
     }
 
-    static String json(List<String> results) {
+    public static String json(List<String> results) {
         return "{\"model\":\"fake\",\"results\":[" + String.join(",", results) + "]}";
     }
 

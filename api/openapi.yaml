@@ -140,6 +140,38 @@ paths:
           $ref: '#/components/responses/PayloadTooLarge'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [Admin]
+      operationId: getSegment
+      summary: Where a segment is in its life, and its transcript when one is kept
+      description: |
+        The state of one segment of the caller's tenant: `QUEUED` (waiting for a worker), `LEASED`
+        (a worker is transcribing it), `TRANSCRIBED` or `FAILED` (ADR-0025 §9). The transcript
+        appears only for `TRANSCRIBED` segments and only when the installation keeps transcripts
+        (`PREGON_RETENTION_TRANSCRIPTS`, ADR-0006): by default none is stored and the field is absent.
+        Segment metadata expires with `PREGON_RETENTION_SEGMENTS`; after that the segment is `404`
+        even if its transcript is still kept.
+      security:
+        - adminKey: []
+      parameters:
+        - name: segmentId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: The segment, as the caller's tenant knows it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SegmentStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /v1/locations:
     get:
@@ -1134,6 +1166,97 @@ components:
         clockSkewSuspected:
           description: The capture end is too far from the arrival time; the agent's clock may be wrong.
           type: boolean
+
+    SegmentStatus:
+      type: object
+      required: [segmentId, sourceId, state, attempt, receivedAt, captureStart, captureEnd, voicedDuration, clockSkewSuspected]
+      properties:
+        segmentId:
+          $ref: '#/components/schemas/Id'
+        sourceId:
+          $ref: '#/components/schemas/Id'
+        state:
+          type: string
+          enum: [QUEUED, LEASED, TRANSCRIBED, FAILED]
+        attempt:
+          description: Transcription attempts started so far; the last allowed one leaves the segment `FAILED` (ADR-0025 §9).
+          type: integer
+          minimum: 0
+        receivedAt:
+          type: string
+          format: date-time
+        captureStart:
+          type: string
+          format: date-time
+        captureEnd:
+          type: string
+          format: date-time
+        voicedDuration:
+          description: Speech detected by the agent inside the segment (ISO 8601 duration).
+          type: string
+          format: duration
+        clockSkewSuspected:
+          type: boolean
+        failureReason:
+          description: Why the last attempt failed, for operators; present on `FAILED` segments and on requeued ones.
+          type: string
+        transcript:
+          $ref: '#/components/schemas/Transcript'
+
+    Transcript:
+      description: The text of a segment, as the speech-to-text provider returned it (ADR-0012, ADR-0022).
+      type: object
+      required: [text, language, audioDuration, processingTime, spans, transcribedAt]
+      properties:
+        text:
+          description: May be empty when the provider found no speech worth writing; that is a result, not a failure.
+          type: string
+        language:
+          description: ISO 639 code of the installation (ADR-0008).
+          type: string
+        audioDuration:
+          type: string
+          format: duration
+        processingTime:
+          description: How long the provider took on this segment.
+          type: string
+          format: duration
+        spans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpeechSpan'
+        transcribedAt:
+          type: string
+          format: date-time
+
+    SpeechSpan:
+      description: |
+        One stretch of speech inside the segment with the provider's confidence figures, which the
+        rules use to tell speech from hallucination (ADR-0001). A figure the provider did not give
+        is absent.
+      type: object
+      required: [start, end, text]
+      properties:
+        start:
+          description: Offset from the start of the segment (ISO 8601 duration).
+          type: string
+          format: duration
+        end:
+          type: string
+          format: duration
+        text:
+          type: string
+        avgLogprob:
+          description: Average log-probability of the tokens; closer to 0 is more confident.
+          type: number
+        noSpeechProb:
+          description: Probability that the span holds no speech at all.
+          type: number
+          minimum: 0
+          maximum: 1
+        compressionRatio:
+          description: Above about 2.4 the model is repeating itself.
+          type: number
 
     Health:
       type: object
