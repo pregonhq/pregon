@@ -41,7 +41,12 @@ public abstract class SegmentQueueContract {
     /** Records a segment with audio of {@code bytes} bytes and enqueues it, as ingestion would. */
     protected abstract UUID enqueue(String tenantId, int bytes);
 
+    /** Enqueues a segment with a given id: agents generate ids, so two tenants may use the same one. */
+    protected abstract void enqueue(String tenantId, UUID segmentId, int bytes);
+
     protected abstract String stateOf(UUID segmentId);
+
+    protected abstract String stateOf(String tenantId, UUID segmentId);
 
     protected abstract boolean audioExists(UUID segmentId);
 
@@ -94,10 +99,11 @@ public abstract class SegmentQueueContract {
 
     @Test
     void completingDeletesTheAudioAndKeepsTheRecord() {
-        UUID id = enqueue(newTenant(), 1_000);
+        String tenant = newTenant();
+        UUID id = enqueue(tenant, 1_000);
         Job job = queue().claim(1, LEASE).get(0);
 
-        assertThat(queue().complete(id, job.attempt())).isEqualTo(CompleteOutcome.COMPLETED);
+        assertThat(queue().complete(tenant, id, job.attempt())).isEqualTo(CompleteOutcome.COMPLETED);
 
         assertThat(stateOf(id)).isEqualTo("TRANSCRIBED");
         assertThat(audioExists(id)).isFalse();
@@ -107,41 +113,44 @@ public abstract class SegmentQueueContract {
     @Test
     void aWorkerThatOutlivedItsLeaseCannotOverwriteTheNewOwner() {
         // The slow worker still holds attempt 1; the job was re-claimed as attempt 2 in the meantime.
-        UUID id = enqueue(newTenant(), 1_000);
+        String tenant = newTenant();
+        UUID id = enqueue(tenant, 1_000);
         queue().claim(1, LEASE);
         clock().advance(LEASE.plusSeconds(1));
         queue().claim(1, LEASE);
 
-        assertThat(queue().complete(id, 1)).isEqualTo(CompleteOutcome.STALE);
-        assertThat(queue().fail(id, 1, "late")).isEqualTo(FailOutcome.STALE);
+        assertThat(queue().complete(tenant, id, 1)).isEqualTo(CompleteOutcome.STALE);
+        assertThat(queue().fail(tenant, id, 1, "late")).isEqualTo(FailOutcome.STALE);
 
         assertThat(stateOf(id)).isEqualTo("LEASED");
         assertThat(attemptOf(id)).isEqualTo(2);
         assertThat(audioExists(id)).isTrue();
-        assertThat(queue().complete(id, 2)).isEqualTo(CompleteOutcome.COMPLETED);
+        assertThat(queue().complete(tenant, id, 2)).isEqualTo(CompleteOutcome.COMPLETED);
     }
 
     @Test
     void completingTwiceIsStaleNotAnError() {
-        UUID id = enqueue(newTenant(), 1_000);
+        String tenant = newTenant();
+        UUID id = enqueue(tenant, 1_000);
         queue().claim(1, LEASE);
 
-        assertThat(queue().complete(id, 1)).isEqualTo(CompleteOutcome.COMPLETED);
-        assertThat(queue().complete(id, 1)).isEqualTo(CompleteOutcome.STALE);
+        assertThat(queue().complete(tenant, id, 1)).isEqualTo(CompleteOutcome.COMPLETED);
+        assertThat(queue().complete(tenant, id, 1)).isEqualTo(CompleteOutcome.STALE);
         assertThat(stateOf(id)).isEqualTo("TRANSCRIBED");
     }
 
     @Test
     void failingRequeuesUntilTheLastAttemptThenFailsAndDeletesTheAudio() {
-        UUID id = enqueue(newTenant(), 1_000);
+        String tenant = newTenant();
+        UUID id = enqueue(tenant, 1_000);
 
-        assertThat(queue().fail(id, queue().claim(1, LEASE).get(0).attempt(), "stt down")).isEqualTo(FailOutcome.REQUEUED);
+        assertThat(queue().fail(tenant, id, queue().claim(1, LEASE).get(0).attempt(), "stt down")).isEqualTo(FailOutcome.REQUEUED);
         assertThat(stateOf(id)).isEqualTo("QUEUED");
-        assertThat(queue().fail(id, queue().claim(1, LEASE).get(0).attempt(), "stt down")).isEqualTo(FailOutcome.REQUEUED);
+        assertThat(queue().fail(tenant, id, queue().claim(1, LEASE).get(0).attempt(), "stt down")).isEqualTo(FailOutcome.REQUEUED);
         Job last = queue().claim(1, LEASE).get(0);
         assertThat(last.attempt()).isEqualTo(MAX_ATTEMPTS);
 
-        assertThat(queue().fail(id, last.attempt(), "stt down")).isEqualTo(FailOutcome.FAILED);
+        assertThat(queue().fail(tenant, id, last.attempt(), "stt down")).isEqualTo(FailOutcome.FAILED);
 
         assertThat(stateOf(id)).isEqualTo("FAILED");
         assertThat(audioExists(id)).isFalse();
@@ -165,14 +174,15 @@ public abstract class SegmentQueueContract {
 
     @Test
     void aFailedSegmentIsNeverHandedOutAgain() {
-        UUID id = enqueue(newTenant(), 1_000);
+        String tenant = newTenant();
+        UUID id = enqueue(tenant, 1_000);
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            queue().fail(id, queue().claim(1, LEASE).get(0).attempt(), "poison");
+            queue().fail(tenant, id, queue().claim(1, LEASE).get(0).attempt(), "poison");
         }
         clock().advance(Duration.ofDays(1));
 
         assertThat(queue().claim(5, LEASE)).isEmpty();
-        assertThat(queue().complete(id, MAX_ATTEMPTS)).isEqualTo(CompleteOutcome.STALE);
+        assertThat(queue().complete(tenant, id, MAX_ATTEMPTS)).isEqualTo(CompleteOutcome.STALE);
     }
 
     @Test
@@ -224,5 +234,22 @@ public abstract class SegmentQueueContract {
 
         assertThat(batch).extracting(Job::segmentId).containsExactly(ofA, ofB);
         assertThat(batch).extracting(Job::tenantId).containsExactly(a, b);
+    }
+
+    @Test
+    void reportingNamesTheTenantSoASharedIdNeverCrossesTenants() {
+        String a = newTenant();
+        String b = newTenant();
+        UUID shared = enqueue(a, 1_000);
+        enqueue(b, shared, 1_000);
+        List<Job> batch = queue().claim(5, LEASE);
+        assertThat(batch).extracting(Job::tenantId).containsExactlyInAnyOrder(a, b);
+
+        assertThat(queue().complete(a, shared, 1)).isEqualTo(CompleteOutcome.COMPLETED);
+        assertThat(queue().fail(b, shared, 1, "stt down")).isEqualTo(FailOutcome.REQUEUED);
+
+        assertThat(stateOf(a, shared)).isEqualTo("TRANSCRIBED");
+        assertThat(stateOf(b, shared)).isEqualTo("QUEUED");
+        assertThat(queue().complete("nobody", shared, 1)).isEqualTo(CompleteOutcome.STALE);
     }
 }

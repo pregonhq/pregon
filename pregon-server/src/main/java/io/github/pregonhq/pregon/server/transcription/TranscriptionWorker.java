@@ -94,35 +94,59 @@ public final class TranscriptionWorker implements SmartLifecycle {
         List<Job> withAudio = new ArrayList<>(jobs.size());
         for (Job job : jobs) {
             if (job.audio().length == 0) {
-                queue.fail(job.segmentId(), job.attempt(), "audio missing from the queue");
-                log.warn("segment {} attempt {} has no audio in the queue", job.segmentId(), job.attempt());
+                queue.fail(job.tenantId(), job.segmentId(), job.attempt(), "audio missing from the queue");
+                log.warn("segment {} of tenant {} attempt {} has no audio in the queue", job.segmentId(), job.tenantId(), job.attempt());
             } else {
                 withAudio.add(job);
             }
         }
-        if (withAudio.isEmpty()) {
-            return jobs.size();
+        // Ids come from agents and two tenants may share one; a request needs distinct ids, so such a
+        // batch goes in rounds, each with one job per id, instead of failing anybody.
+        for (List<Job> round : rounds(withAudio)) {
+            if (!transcribe(round)) {
+                break;
+            }
         }
-        List<AudioSegment> audio = withAudio.stream().map(job -> new AudioSegment(job.segmentId(), job.audio())).toList();
+        return jobs.size();
+    }
+
+    static List<List<Job>> rounds(List<Job> jobs) {
+        List<List<Job>> rounds = new ArrayList<>();
+        for (Job job : jobs) {
+            List<Job> round = rounds.stream()
+                    .filter(r -> r.stream().noneMatch(other -> other.segmentId().equals(job.segmentId())))
+                    .findFirst().orElse(null);
+            if (round == null) {
+                round = new ArrayList<>();
+                rounds.add(round);
+            }
+            round.add(job);
+        }
+        return rounds;
+    }
+
+    /** One request to the sidecar; false when the sidecar could not take it and the pass must stop. */
+    private boolean transcribe(List<Job> round) {
+        List<AudioSegment> audio = round.stream().map(job -> new AudioSegment(job.segmentId(), job.audio())).toList();
         long started = System.nanoTime();
         List<TranscriptionResult> results;
         try {
             results = stt.transcribe(new TranscriptionRequest(properties.language(), audio));
         } catch (SpeechToTextException e) {
-            returnBatch(withAudio, e);
-            return jobs.size();
+            returnBatch(round, e);
+            return false;
         }
         long elapsedMillis = (System.nanoTime() - started) / 1_000_000;
 
         Map<UUID, Job> byId = new HashMap<>();
-        withAudio.forEach(job -> byId.put(job.segmentId(), job));
+        round.forEach(job -> byId.put(job.segmentId(), job));
         int failed = 0;
         for (TranscriptionResult result : results) {
             Job job = byId.get(result.segmentId());
             switch (result) {
                 case TranscriptionResult.Transcribed transcribed -> {
                     sink.save(job, transcribed);
-                    SegmentQueue.CompleteOutcome outcome = queue.complete(job.segmentId(), job.attempt());
+                    SegmentQueue.CompleteOutcome outcome = queue.complete(job.tenantId(), job.segmentId(), job.attempt());
                     if (outcome == SegmentQueue.CompleteOutcome.STALE) {
                         log.warn("segment {} attempt {} was transcribed after its lease; the result of the current owner stands",
                                 job.segmentId(), job.attempt());
@@ -130,14 +154,14 @@ public final class TranscriptionWorker implements SmartLifecycle {
                 }
                 case TranscriptionResult.Failed failure -> {
                     failed++;
-                    SegmentQueue.FailOutcome outcome = queue.fail(job.segmentId(), job.attempt(), truncate(failure.reason()));
+                    SegmentQueue.FailOutcome outcome = queue.fail(job.tenantId(), job.segmentId(), job.attempt(), truncate(failure.reason()));
                     log.warn("segment {} attempt {} could not be transcribed ({}): {}", job.segmentId(), job.attempt(), outcome,
                             truncate(failure.reason()));
                 }
             }
         }
         log.info("transcribed a batch of {} segments in {} ms, {} failed", results.size(), elapsedMillis, failed);
-        return jobs.size();
+        return true;
     }
 
     /**
@@ -150,7 +174,7 @@ public final class TranscriptionWorker implements SmartLifecycle {
     private void returnBatch(List<Job> jobs, SpeechToTextException e) {
         String reason = truncate(e.getMessage());
         for (Job job : jobs) {
-            queue.fail(job.segmentId(), job.attempt(), reason);
+            queue.fail(job.tenantId(), job.segmentId(), job.attempt(), reason);
         }
         Instant now = clock.instant();
         if (e.isRetryable()) {

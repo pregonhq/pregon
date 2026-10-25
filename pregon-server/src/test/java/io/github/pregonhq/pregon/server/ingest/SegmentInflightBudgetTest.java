@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -23,6 +24,10 @@ import org.springframework.test.context.DynamicPropertySource;
 class SegmentInflightBudgetTest extends IngestTestSupport {
 
     static final int SEGMENT = 8_000;
+    static final long CAPACITY = 20_000;
+
+    @Autowired
+    InflightBudget budget;
 
     @DynamicPropertySource
     static void limits(DynamicPropertyRegistry registry) {
@@ -36,7 +41,8 @@ class SegmentInflightBudgetTest extends IngestTestSupport {
 
         List<Socket> stalled = stalledUploads(t.ingestKey(), body, 2);
         try {
-            HttpResponse<String> third = putUntil(t.ingestKey(), body, 503);
+            awaitHeld(2L * body.length);
+            HttpResponse<String> third = putSegment(t.ingestKey(), segmentId(), body);
 
             assertProblem(third, 503);
             assertThat(third.headers().firstValue("Retry-After")).hasValueSatisfying(
@@ -52,27 +58,30 @@ class SegmentInflightBudgetTest extends IngestTestSupport {
         byte[] body = multipart(metadata(t.sourceId()), OggOpus.ofSize(SEGMENT));
 
         List<Socket> stalled = stalledUploads(t.ingestKey(), body, 2);
-        assertProblem(putUntil(t.ingestKey(), body, 503), 503);
+        awaitHeld(2L * body.length);
+        assertProblem(putSegment(t.ingestKey(), segmentId(), body), 503);
         close(stalled);
 
-        HttpResponse<String> response = putUntil(t.ingestKey(), body, 202);
+        awaitHeld(0);
+        HttpResponse<String> response = putSegment(t.ingestKey(), segmentId(), body);
 
         assertThat(response.statusCode()).as(response.body()).isEqualTo(202);
     }
 
     /**
-     * Uploads fresh segments until one is answered with {@code status} or five seconds pass, and returns
-     * the last answer. The server takes the budget only when it reads a stalled upload's headers and
-     * gives it back only when it next reads a closed socket; on a slow machine both happen after an
-     * upload sent right away, so the first answers may still show the previous state.
+     * Waits until the budget holds exactly {@code bytes}. The server takes a stalled upload's bytes
+     * only when it has read its headers and gives them back only when it next reads the closed
+     * socket; on a slow machine both happen after this test's next request would, so the test
+     * watches the budget itself instead of guessing with a clock.
      */
-    private HttpResponse<String> putUntil(String key, byte[] body, int status) throws Exception {
-        Instant deadline = Instant.now().plus(Duration.ofSeconds(5));
-        HttpResponse<String> response;
-        do {
-            response = putSegment(key, segmentId(), body);
-        } while (response.statusCode() != status && Instant.now().isBefore(deadline));
-        return response;
+    private void awaitHeld(long bytes) throws InterruptedException {
+        Instant deadline = Instant.now().plus(Duration.ofSeconds(10));
+        while (CAPACITY - budget.available() != bytes) {
+            if (!Instant.now().isBefore(deadline)) {
+                throw new AssertionError("expected " + bytes + " bytes held, but the budget holds " + (CAPACITY - budget.available()));
+            }
+            Thread.sleep(20);
+        }
     }
 
     @Test

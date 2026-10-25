@@ -72,6 +72,12 @@ class PostgresSegmentQueueTest extends SegmentQueueContract {
     @Override
     protected UUID enqueue(String tenantId, int bytes) {
         UUID id = nextId();
+        enqueue(tenantId, id, bytes);
+        return id;
+    }
+
+    @Override
+    protected void enqueue(String tenantId, UUID id, int bytes) {
         UUID source = jdbc.sql("SELECT id FROM source WHERE tenant_id = :tenant").param("tenant", tenantId).query(UUID.class).single();
         byte[] audio = new byte[bytes];
         OffsetDateTime end = clock.instant().atOffset(ZoneOffset.UTC);
@@ -86,12 +92,17 @@ class PostgresSegmentQueueTest extends SegmentQueueContract {
             jdbc.sql("INSERT INTO segment_audio (tenant_id, segment_id, bytes) VALUES (:tenant, :id, :audio)")
                     .param("tenant", tenantId).param("id", id).param("audio", audio).update();
         });
-        return id;
     }
 
     @Override
     protected String stateOf(UUID segmentId) {
         return jdbc.sql("SELECT state FROM segment WHERE id = :id").param("id", segmentId).query(String.class).single();
+    }
+
+    @Override
+    protected String stateOf(String tenantId, UUID segmentId) {
+        return jdbc.sql("SELECT state FROM segment WHERE tenant_id = :tenant AND id = :id")
+                .param("tenant", tenantId).param("id", segmentId).query(String.class).single();
     }
 
     @Override

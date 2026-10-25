@@ -94,40 +94,45 @@ public final class PostgresSegmentQueue implements SegmentQueue {
     }
 
     @Override
-    public CompleteOutcome complete(UUID segmentId, int attempt) {
+    public CompleteOutcome complete(String tenantId, UUID segmentId, int attempt) {
         return transaction.execute(status -> {
             int updated = jdbc.sql("""
                     UPDATE segment SET state = 'TRANSCRIBED', lease_until = NULL
-                    WHERE id = :id AND attempt = :attempt AND state = 'LEASED'""")
-                    .param("id", segmentId).param("attempt", attempt)
+                    WHERE tenant_id = :tenant AND id = :id AND attempt = :attempt AND state = 'LEASED'""")
+                    .param("tenant", tenantId).param("id", segmentId).param("attempt", attempt)
                     .update();
             if (updated == 0) {
                 return CompleteOutcome.STALE;
             }
-            deleteAudio(List.of(segmentId));
+            deleteAudio(tenantId, segmentId);
             return CompleteOutcome.COMPLETED;
         });
     }
 
     @Override
-    public FailOutcome fail(UUID segmentId, int attempt, String reason) {
+    public FailOutcome fail(String tenantId, UUID segmentId, int attempt, String reason) {
         return transaction.execute(status -> {
             boolean last = attempt >= maxAttempts;
             int updated = jdbc.sql("""
                     UPDATE segment SET state = :state, lease_until = NULL, failure_reason = :reason
-                    WHERE id = :id AND attempt = :attempt AND state = 'LEASED'""")
+                    WHERE tenant_id = :tenant AND id = :id AND attempt = :attempt AND state = 'LEASED'""")
                     .param("state", last ? "FAILED" : "QUEUED").param("reason", reason)
-                    .param("id", segmentId).param("attempt", attempt)
+                    .param("tenant", tenantId).param("id", segmentId).param("attempt", attempt)
                     .update();
             if (updated == 0) {
                 return FailOutcome.STALE;
             }
             if (last) {
-                deleteAudio(List.of(segmentId));
+                deleteAudio(tenantId, segmentId);
                 return FailOutcome.FAILED;
             }
             return FailOutcome.REQUEUED;
         });
+    }
+
+    private void deleteAudio(String tenantId, UUID segmentId) {
+        jdbc.sql("DELETE FROM segment_audio WHERE tenant_id = :tenant AND segment_id = :id")
+                .param("tenant", tenantId).param("id", segmentId).update();
     }
 
     private void deleteAudio(List<UUID> ids) {

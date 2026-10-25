@@ -55,7 +55,7 @@ class TranscriptionWorkerTest {
             assertThat(request.segments()).extracting("id").containsExactly(a, b);
         });
         assertThat(stored).containsExactly(a + "=hola " + a, b + "=hola " + b);
-        assertThat(queue.completed).containsExactly(a + "@1", b + "@1");
+        assertThat(queue.completed).containsExactly("t1:" + a + "@1", "t1:" + b + "@1");
         assertThat(queue.failed).isEmpty();
         assertThat(queue.claimedWithLease).containsExactly(LEASE);
     }
@@ -68,8 +68,8 @@ class TranscriptionWorkerTest {
 
         worker.runOnce();
 
-        assertThat(queue.completed).containsExactly(good + "@1");
-        assertThat(queue.failed).containsExactly(bad + "@1: audio could not be decoded");
+        assertThat(queue.completed).containsExactly("t1:" + good + "@1");
+        assertThat(queue.failed).containsExactly("t1:" + bad + "@1: audio could not be decoded");
         assertThat(stored).containsExactly(good + "=hola");
     }
 
@@ -82,8 +82,8 @@ class TranscriptionWorkerTest {
         worker.runOnce();
 
         assertThat(stt.requests).singleElement().satisfies(request -> assertThat(request.segments()).extracting("id").containsExactly(full));
-        assertThat(queue.failed).singleElement().asString().startsWith(empty + "@1: audio missing");
-        assertThat(queue.completed).containsExactly(full + "@1");
+        assertThat(queue.failed).singleElement().asString().startsWith("t1:" + empty + "@1: audio missing");
+        assertThat(queue.completed).containsExactly("t1:" + full + "@1");
     }
 
     @Test
@@ -100,7 +100,7 @@ class TranscriptionWorkerTest {
         };
 
         assertThat(worker.runOnce()).isEqualTo(1);
-        assertThat(queue.failed).containsExactly(a + "@1: sidecar busy");
+        assertThat(queue.failed).containsExactly("t1:" + a + "@1: sidecar busy");
         assertThat(queue.pending()).containsExactly(a);
 
         // Within Retry-After: no claim, whatever the sidecar says.
@@ -122,7 +122,7 @@ class TranscriptionWorkerTest {
         stt.script = request -> List.of(transcribed(a, "hola"));
         clock.advance(POLL);
         assertThat(worker.runOnce()).isEqualTo(1);
-        assertThat(queue.completed).containsExactly(a + "@2");
+        assertThat(queue.completed).containsExactly("t1:" + a + "@2");
     }
 
     @Test
@@ -133,13 +133,13 @@ class TranscriptionWorkerTest {
         };
 
         assertThat(worker.runOnce()).isEqualTo(1);
-        assertThat(queue.failed).containsExactly(a + "@1: the sidecar rejected the request");
+        assertThat(queue.failed).containsExactly("t1:" + a + "@1: the sidecar rejected the request");
 
         assertThat(worker.runOnce()).isZero();
         clock.advance(POLL);
         stt.script = request -> List.of(transcribed(a, "hola"));
         assertThat(worker.runOnce()).isEqualTo(1);
-        assertThat(queue.completed).containsExactly(a + "@2");
+        assertThat(queue.completed).containsExactly("t1:" + a + "@2");
     }
 
     @Test
@@ -149,7 +149,7 @@ class TranscriptionWorkerTest {
         stt.script = request -> List.of(transcribed(a, "hola"));
 
         assertThat(worker.runOnce()).isEqualTo(1);
-        assertThat(queue.completed).containsExactly(a + "@1");
+        assertThat(queue.completed).containsExactly("t1:" + a + "@1");
     }
 
     @Test
@@ -164,16 +164,35 @@ class TranscriptionWorkerTest {
         assertThat(queue.pending()).hasSize(6 - ScriptedStt.BATCH);
     }
 
+    @Test
+    void twoTenantsSharingAnIdGoInSeparateRoundsAndEachIsReportedToItsOwnTenant() {
+        UUID shared = queue.add("t1", "a");
+        queue.add("t2", shared, "b");
+        UUID other = queue.add("t1", "c");
+        stt.script = request -> request.segments().stream().<TranscriptionResult>map(s -> transcribed(s.id(), "hola")).toList();
+
+        assertThat(worker.runOnce()).isEqualTo(3);
+
+        assertThat(stt.requests).hasSize(2);
+        assertThat(stt.requests.get(0).segments()).extracting("id").containsExactly(shared, other);
+        assertThat(stt.requests.get(1).segments()).extracting("id").containsExactly(shared);
+        assertThat(queue.completed).containsExactlyInAnyOrder("t1:" + shared + "@1", "t1:" + other + "@1", "t2:" + shared + "@1");
+        assertThat(queue.failed).isEmpty();
+    }
+
     private static TranscriptionResult.Transcribed transcribed(UUID id, String text) {
         return new TranscriptionResult.Transcribed(id, text, "es", Duration.ofSeconds(10), List.of(), Duration.ofMillis(50));
     }
 
-    /** A queue in memory with the contract's state machine, enough for one worker. */
+    /** A queue in memory with the contract's state machine, keyed by tenant and id as the real one is. */
     static final class FakeQueue implements SegmentQueue {
-        private record Entry(UUID id, String tenantId, byte[] audio, int attempt, boolean leased) {
+        private record Key(String tenantId, UUID id) {
         }
 
-        final Map<UUID, Entry> entries = new java.util.LinkedHashMap<>();
+        private record Entry(Key key, byte[] audio, int attempt, boolean leased) {
+        }
+
+        final Map<Key, Entry> entries = new java.util.LinkedHashMap<>();
         final List<String> completed = new ArrayList<>();
         final List<String> failed = new ArrayList<>();
         final List<Duration> claimedWithLease = new ArrayList<>();
@@ -182,12 +201,17 @@ class TranscriptionWorkerTest {
 
         UUID add(String tenantId, String audio) {
             UUID id = new UUID(0x0190_0000_0000_7000L + entries.size(), 0x8000_0000_0000_0000L);
-            entries.put(id, new Entry(id, tenantId, audio.getBytes(), 0, false));
+            add(tenantId, id, audio);
             return id;
         }
 
+        void add(String tenantId, UUID id, String audio) {
+            Key key = new Key(tenantId, id);
+            entries.put(key, new Entry(key, audio.getBytes(), 0, false));
+        }
+
         List<UUID> pending() {
-            return entries.values().stream().filter(e -> !e.leased()).map(Entry::id).toList();
+            return entries.values().stream().filter(e -> !e.leased()).map(e -> e.key().id()).toList();
         }
 
         @Override
@@ -200,9 +224,9 @@ class TranscriptionWorkerTest {
                     break;
                 }
                 if (!entry.leased()) {
-                    Entry leased = new Entry(entry.id(), entry.tenantId(), entry.audio(), entry.attempt() + 1, true);
-                    entries.put(entry.id(), leased);
-                    jobs.add(new Job(leased.id(), leased.tenantId(), UUID.randomUUID(), leased.attempt(),
+                    Entry leased = new Entry(entry.key(), entry.audio(), entry.attempt() + 1, true);
+                    entries.put(entry.key(), leased);
+                    jobs.add(new Job(leased.key().id(), leased.key().tenantId(), UUID.randomUUID(), leased.attempt(),
                             Instant.now().plus(lease).truncatedTo(ChronoUnit.MICROS), leased.audio()));
                 }
             }
@@ -210,17 +234,18 @@ class TranscriptionWorkerTest {
         }
 
         @Override
-        public CompleteOutcome complete(UUID segmentId, int attempt) {
-            completed.add(segmentId + "@" + attempt);
-            entries.remove(segmentId);
+        public CompleteOutcome complete(String tenantId, UUID segmentId, int attempt) {
+            completed.add(tenantId + ":" + segmentId + "@" + attempt);
+            entries.remove(new Key(tenantId, segmentId));
             return completeOutcome;
         }
 
         @Override
-        public FailOutcome fail(UUID segmentId, int attempt, String reason) {
-            failed.add(segmentId + "@" + attempt + ": " + reason);
-            Entry entry = entries.get(segmentId);
-            entries.put(segmentId, new Entry(entry.id(), entry.tenantId(), entry.audio(), entry.attempt(), false));
+        public FailOutcome fail(String tenantId, UUID segmentId, int attempt, String reason) {
+            failed.add(tenantId + ":" + segmentId + "@" + attempt + ": " + reason);
+            Key key = new Key(tenantId, segmentId);
+            Entry entry = entries.get(key);
+            entries.put(key, new Entry(key, entry.audio(), entry.attempt(), false));
             return FailOutcome.REQUEUED;
         }
     }
