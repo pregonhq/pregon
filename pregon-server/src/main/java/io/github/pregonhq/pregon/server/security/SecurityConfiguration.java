@@ -46,6 +46,7 @@ class SecurityConfiguration {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/v1/segments/*").hasAuthority(ApiKeyScope.INGEST.name())
+                        .requestMatchers(HttpMethod.GET, "/v1/segments/*").hasAuthority(ApiKeyScope.ADMIN.name())
                         .requestMatchers("/v1/segments/**").denyAll()
                         .requestMatchers("/v1/**").hasAuthority(ApiKeyScope.ADMIN.name())
                         .anyRequest().denyAll())

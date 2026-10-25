@@ -1,5 +1,5 @@
 # ADR-0025: Ingestion hot path, quotas and queue under sustained load
-Status: Accepted 2026-10-16 (refines ADR-0024; amends the Segment row of ADR-0022 for retention)
+Status: Accepted 2026-10-16 (refines ADR-0024; amends the Segment row of ADR-0022 for retention; §9 implemented by ADR-0027)
 
 ## Context
 ADR-0024 fixes *what* ingestion guarantees. This ADR fixes *how* it stays cheap when thousands

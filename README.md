@@ -69,6 +69,13 @@ curl -H "Authorization: Bearer pgn_..." http://localhost:8080/v1/locations
 `pregon keys list` shows the keys without their secrets and `pregon keys revoke ID` disables one.
 Agents use keys with the `ingest` scope.
 
+Segments uploaded by agents are transcribed by the sidecar as they arrive, and their audio is
+deleted. Where one segment is, and its text when `PREGON_RETENTION_TRANSCRIPTS` keeps it:
+
+```
+curl -H "Authorization: Bearer pgn_..." http://localhost:8080/v1/segments/<segmentId>
+```
+
 ## Building from source
 
 Requires JDK 25 (Maven is provided by the wrapper).

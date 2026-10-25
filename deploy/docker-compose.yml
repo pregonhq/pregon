@@ -69,12 +69,17 @@ services:
       context: ..
       dockerfile: pregon-server/Dockerfile
     image: ghcr.io/pregonhq/pregon-server:dev
+    # Connections are wired here; the tunables below pass through from .env when set and the server
+    # applies its documented defaults otherwise (docs/configuration.md).
     environment:
-      PREGON_DB_URL: jdbc:postgresql://postgres:5432/pregon
-      PREGON_DB_USER: pregon
-      PREGON_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required, set it in deploy/.env}
-      PREGON_REDIS_URL: redis://valkey:6379
-      PREGON_STT_URL: http://stt:8000
+      - PREGON_DB_URL=jdbc:postgresql://postgres:5432/pregon
+      - PREGON_DB_USER=pregon
+      - PREGON_DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required, set it in deploy/.env}
+      - PREGON_REDIS_URL=redis://valkey:6379
+      - PREGON_STT_URL=http://stt:8000
+      - PREGON_LANGUAGE
+      - PREGON_RETENTION_AUDIO
+      - PREGON_RETENTION_TRANSCRIPTS
     ports:
       - "8080:8080"
     depends_on:

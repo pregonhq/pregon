@@ -39,8 +39,13 @@ class SttConfiguration {
     }
 
     @Bean
-    SpeechToText speechToText(Environment environment, HttpClient sttHttpClient) {
-        return new SidecarSpeechToText(baseUrl(environment), timeout(environment), batch(environment), sttHttpClient);
+    SttProperties sttProperties(Environment environment) {
+        return new SttProperties(baseUrl(environment), timeout(environment), batch(environment));
+    }
+
+    @Bean
+    SpeechToText speechToText(SttProperties properties, HttpClient sttHttpClient) {
+        return new SidecarSpeechToText(properties.baseUrl(), properties.timeout(), properties.batch(), sttHttpClient);
     }
 
     private static Duration timeout(Environment environment) {
@@ -78,8 +83,8 @@ class SttConfiguration {
     }
 
     @Bean
-    HealthIndicator sttHealthIndicator(Environment environment, HttpClient sttHttpClient) {
-        return new SttHealthIndicator(baseUrl(environment), sttHttpClient);
+    HealthIndicator sttHealthIndicator(SttProperties properties, HttpClient sttHttpClient) {
+        return new SttHealthIndicator(properties.baseUrl(), sttHttpClient);
     }
 
     private static URI baseUrl(Environment environment) {
