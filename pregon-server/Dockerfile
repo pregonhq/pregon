@@ -38,7 +38,7 @@ RUN modules="$(jdeps --multi-release 25 --ignore-missing-deps --print-module-dep
       --output /runtime \
  && rm /runtime/lib/server/classes_nocoops.jsa
 
-FROM alpine:3.24.2
+FROM alpine:3.24.3
 
 ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH=${JAVA_HOME}/bin:${PATH}
