@@ -40,7 +40,7 @@
         <maven.compiler.release>25</maven.compiler.release>
 
         <!-- ADR-0014: same versions as the Spring Boot 4.1.1 BOM, so every module agrees. -->
-        <spring-boot.version>4.1.1</spring-boot.version>
+        <spring-boot.version>4.1.2</spring-boot.version>
         <junit-jupiter.version>6.0.3</junit-jupiter.version>
 
         <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
