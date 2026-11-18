@@ -3,7 +3,7 @@
 # Three stages (ADR-0026): build the jar, link a runtime with only the JDK modules it uses, and
 # copy both onto a plain Alpine base. The server has no native libraries, so musl is fine here;
 # the agent (ONNX Runtime) must stay on a glibc base.
-FROM eclipse-temurin:25.0.4.1_1-jdk-alpine-3.24 AS build
+FROM eclipse-temurin:25-jdk-alpine-3.21 AS build
 WORKDIR /workspace
 
 # Poms first, so the dependency layer is reused while only sources change.
